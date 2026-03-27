@@ -130,21 +130,13 @@ public class ConsoleHost(IBacklogService backlogService, IPrioritizationService 
             : string.Empty;
 
         if (string.Equals(subCommand, "set", StringComparison.OrdinalIgnoreCase))
-        {
             HandleContextSet();
-        }
         else if (string.Equals(subCommand, "show", StringComparison.OrdinalIgnoreCase))
-        {
             HandleContextShow();
-        }
         else if (string.Equals(subCommand, "clear", StringComparison.OrdinalIgnoreCase))
-        {
             HandleContextClear();
-        }
         else
-        {
             _output.WriteLine("Unknown context command. Use: context set, context show, context clear.");
-        }
     }
 
     private void HandleContextSet()
