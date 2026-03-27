@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\myownpo.csproj" />
+    <ProjectReference Include="..\MyOwnPo.App\MyOwnPo.App.csproj" />
   </ItemGroup>
 
 </Project>

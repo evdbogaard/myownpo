@@ -98,9 +98,9 @@ After the backlog has been ingested, allow the team member to request prioritiza
 | `Services/PrioritizationService.cs`                     | Add         | Agent orchestration + response parsing                                                                     |
 | `ConsoleHost.cs`                                        | Modify      | Upgrade to conversational agent loop                                                                       |
 | `Program.cs`                                            | Modify      | Register agent, IChatClient, and PrioritizationService in DI; configure Azure OpenAI from appsettings.json |
-| `myownpo.csproj`                                        | Modify      | Add Microsoft.Agents.Builder and LLM provider NuGet packages                                               |
-| `tests/MyOwnPo.UnitTests/PrioritizationServiceTests.cs` | Add         | Unit tests for PrioritizationService                                                                       |
-| `tests/MyOwnPo.UnitTests/ConsoleHostTests.cs`           | Add         | Tests for conversational routing                                                                           |
+| `app/MyOwnPo.App/MyOwnPo.App.csproj`                                        | Modify      | Add Microsoft.Agents.Builder and LLM provider NuGet packages                                               |
+| `app/MyOwnPo.App.UnitTests/PrioritizationServiceTests.cs` | Add         | Unit tests for PrioritizationService                                                                       |
+| `app/MyOwnPo.App.UnitTests/ConsoleHostTests.cs`           | Add         | Tests for conversational routing                                                                           |
 
 ---
 
@@ -118,7 +118,7 @@ After the backlog has been ingested, allow the team member to request prioritiza
 ### Unit Tests
 
 - **Type**: Unit
-- **Project**: `tests/MyOwnPo.UnitTests`
+- **Project**: `app/MyOwnPo.App.UnitTests`
 - **Class**: `PrioritizationServiceTests`
 - **Methods to add/update**:
   - `Suggest_ThreeStories_ReturnsAllThreeRankedWithJustifications`
@@ -152,10 +152,10 @@ After the backlog has been ingested, allow the team member to request prioritiza
 
 ## Scenario Verification Steps _(mandatory)_
 
-1. `dotnet build .\myownpo.sln`
-2. `dotnet test .\tests\MyOwnPo.UnitTests\MyOwnPo.UnitTests.csproj --filter "FullyQualifiedName~PrioritizationService|FullyQualifiedName~ConsoleHost"`
+1. `dotnet build .\myownpo.slnxx`
+2. `dotnet test .\app\MyOwnPo.App.UnitTests\MyOwnPo.App.UnitTests.csproj --filter "FullyQualifiedName~PrioritizationService|FullyQualifiedName~ConsoleHost"`
 3. `dotnet test .\tests\MyOwnPo.IntegrationTests\MyOwnPo.IntegrationTests.csproj --filter "FullyQualifiedName~Prioritization"`
-4. `dotnet format --verify-no-changes .\myownpo.sln`
+4. `dotnet format --verify-no-changes .\myownpo.slnxx`
 5. Manual smoke test: connect to Azure DevOps backlog, type "suggest priorities for the backlog", verify all stories appear ranked with justifications. Ask "why is story X above story Y?", verify explanation. Confirm the Azure DevOps backlog is unmodified.
 
 ---

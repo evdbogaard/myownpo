@@ -97,7 +97,7 @@ Enable a team member to point the AI Product Owner at an Azure DevOps backlog (c
   - **Layer**: Configuration
   - **Reason**: Separates connection config (appsettings) from secrets (user secrets). PAT must never be in source control.
 
-- [ ] **TASK-1-12**: Create unit test project `tests/MyOwnPo.UnitTests/MyOwnPo.UnitTests.csproj` with xUnit and a mocking library.
+- [ ] **TASK-1-12**: Create unit test project `app/MyOwnPo.App.UnitTests/MyOwnPo.App.UnitTests.csproj` with xUnit and a mocking library.
   - **Layer**: Test Infrastructure
   - **Reason**: Foundation for all unit tests across scenarios.
 
@@ -118,11 +118,11 @@ Enable a team member to point the AI Product Owner at an Azure DevOps backlog (c
 | `Services/BacklogCapExceededException.cs`                   | Add         | Explicit exception type used when backlog size exceeds 100 stories          |
 | `ConsoleHost.cs`                                            | Add         | Interactive console command loop                                            |
 | `Program.cs`                                                | Modify      | Set up DI, config, user secrets, and run ConsoleHost                        |
-| `myownpo.csproj`                                            | Modify      | Add NuGet package references (Hosting, Azure DevOps client, UserSecrets)    |
+| `app/MyOwnPo.App/MyOwnPo.App.csproj`                                            | Modify      | Add NuGet package references (Hosting, Azure DevOps client, UserSecrets)    |
 | `appsettings.json`                                          | Add         | Azure DevOps organization URL and project config                            |
-| `tests/MyOwnPo.UnitTests/MyOwnPo.UnitTests.csproj`          | Add         | Unit test project                                                           |
-| `tests/MyOwnPo.UnitTests/BacklogServiceTests.cs`            | Add         | Unit tests for BacklogService                                               |
-| `tests/MyOwnPo.UnitTests/AzureDevOpsBacklogGatewayTests.cs` | Add         | Unit tests for AzureDevOpsBacklogGateway                                    |
+| `app/MyOwnPo.App.UnitTests/MyOwnPo.App.UnitTests.csproj`          | Add         | Unit test project                                                           |
+| `app/MyOwnPo.App.UnitTests/BacklogServiceTests.cs`            | Add         | Unit tests for BacklogService                                               |
+| `app/MyOwnPo.App.UnitTests/AzureDevOpsBacklogGatewayTests.cs` | Add         | Unit tests for AzureDevOpsBacklogGateway                                    |
 
 ---
 
@@ -140,7 +140,7 @@ Enable a team member to point the AI Product Owner at an Azure DevOps backlog (c
 ### Unit Tests
 
 - **Type**: Unit
-- **Project**: `tests/MyOwnPo.UnitTests`
+- **Project**: `app/MyOwnPo.App.UnitTests`
 - **Class**: `BacklogServiceTests`
 - **Methods to add/update**:
   - `Connect_ValidLocation_ReturnsStories`
@@ -177,10 +177,10 @@ Enable a team member to point the AI Product Owner at an Azure DevOps backlog (c
 
 ## Scenario Verification Steps _(mandatory)_
 
-1. `dotnet build .\myownpo.sln`
-2. `dotnet test .\tests\MyOwnPo.UnitTests\MyOwnPo.UnitTests.csproj --filter "FullyQualifiedName~BacklogService|FullyQualifiedName~AzureDevOpsBacklogGateway"`
+1. `dotnet build .\myownpo.slnxx`
+2. `dotnet test .\app\MyOwnPo.App.UnitTests\MyOwnPo.App.UnitTests.csproj --filter "FullyQualifiedName~BacklogService|FullyQualifiedName~AzureDevOpsBacklogGateway"`
 3. `dotnet test .\tests\MyOwnPo.IntegrationTests\MyOwnPo.IntegrationTests.csproj --filter "FullyQualifiedName~BacklogIngestion"` (requires Azure DevOps PAT in user secrets)
-4. `dotnet format --verify-no-changes .\myownpo.sln`
+4. `dotnet format --verify-no-changes .\myownpo.slnxx`
 5. Manual smoke test: run the app, type `connect`, verify it connects to Azure DevOps and displays a summary of stories.
 
 ---

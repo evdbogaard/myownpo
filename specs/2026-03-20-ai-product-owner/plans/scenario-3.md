@@ -86,8 +86,8 @@ Allow the team member to provide project context — product vision, business go
 | `Agents/ProductOwnerAgentDefinition.cs`                 | Modify      | Add `GetProjectContext` tool registration and update system prompt for context-aware reasoning |
 | `ConsoleHost.cs`                                        | Modify      | Add `context set`, `context show`, `context clear` commands                                    |
 | `Program.cs`                                            | Modify      | Register `IProjectContextService` as singleton                                                 |
-| `tests/MyOwnPo.UnitTests/ProjectContextServiceTests.cs` | Add         | Unit tests for context management                                                              |
-| `tests/MyOwnPo.UnitTests/PrioritizationServiceTests.cs` | Modify      | Add tests verifying context flows into suggestions                                             |
+| `app/MyOwnPo.App.UnitTests/ProjectContextServiceTests.cs` | Add         | Unit tests for context management                                                              |
+| `app/MyOwnPo.App.UnitTests/PrioritizationServiceTests.cs` | Modify      | Add tests verifying context flows into suggestions                                             |
 
 ---
 
@@ -104,7 +104,7 @@ Allow the team member to provide project context — product vision, business go
 ### Unit Tests
 
 - **Type**: Unit
-- **Project**: `tests/MyOwnPo.UnitTests`
+- **Project**: `app/MyOwnPo.App.UnitTests`
 - **Class**: `ProjectContextServiceTests`
 - **Methods to add/update**:
   - `SetContext_ValidContext_StoresContext`
@@ -133,9 +133,9 @@ Allow the team member to provide project context — product vision, business go
 
 ## Scenario Verification Steps _(mandatory)_
 
-1. `dotnet build .\myownpo.sln`
-2. `dotnet test .\tests\MyOwnPo.UnitTests\MyOwnPo.UnitTests.csproj --filter "FullyQualifiedName~ProjectContextService|FullyQualifiedName~PrioritizationService"`
-3. `dotnet format --verify-no-changes .\myownpo.sln`
+1. `dotnet build .\myownpo.slnxx`
+2. `dotnet test .\app\MyOwnPo.App.UnitTests\MyOwnPo.App.UnitTests.csproj --filter "FullyQualifiedName~ProjectContextService|FullyQualifiedName~PrioritizationService"`
+3. `dotnet format --verify-no-changes .\myownpo.slnxx`
 4. Manual smoke test: run the app, connect to a backlog.
    - Run `suggest` without context → verify output includes note about missing context.
    - Run `context set` → provide vision and goals.
