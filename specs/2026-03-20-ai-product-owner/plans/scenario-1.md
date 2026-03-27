@@ -28,7 +28,7 @@ Enable a team member to point the AI Product Owner at an Azure DevOps backlog (c
 ## Technical Context _(mandatory)_
 
 - **Current Behavior**: `Program.cs` prints "Hello, World!" — no backlog functionality exists.
-- **Target Behavior**: The console app reads the Azure DevOps organization URL and project name from `appsettings.json` and the PAT from user secrets. A `connect` command (or agent tool invocation) authenticates with Azure DevOps, queries work items of type "User Story" using WIQL, maps them to domain models, stores them in memory, and prints a summary (total count, titles, missing-field warnings). A `refresh` command re-queries Azure DevOps and reports differences (added, removed, changed stories).
+- **Target Behavior**: The console app reads the Azure DevOps organization URL and project name from `appsettings.json` and the PAT from user secrets. A `connect` command (or agent tool invocation) authenticates with Azure DevOps, queries work items of type "User Story" that are not in a terminal state (Closed, Removed) using WIQL, maps them to domain models, stores them in memory, and prints a summary (total count, titles, missing-field warnings). A `refresh` command re-queries Azure DevOps and reports differences (added, removed, changed stories).
 - **Architecture Boundaries**:
   - `ConsoleHost` (controller-equivalent) dispatches commands to `IBacklogService`.
   - `BacklogService` orchestrates connection, ingestion, summary, and refresh logic.
@@ -62,7 +62,7 @@ Enable a team member to point the AI Product Owner at an Azure DevOps backlog (c
 - [ ] **TASK-1-06**: Implement `AzureDevOpsBacklogGateway : IBacklogGateway`.
   - Inject `IOptions<AzureDevOpsSettings>` for configuration.
   - Authenticate using PAT via `VssBasicCredential`.
-  - Execute a WIQL query to retrieve all work items of type "User Story" in the configured project.
+  - Execute a WIQL query to retrieve all work items of type "User Story" in the configured project, excluding terminal states (Closed, Removed) via `[System.State] NOT IN ('Closed', 'Removed')`.
   - Map Azure DevOps work item fields to `UserStory` domain model (Title → `System.Title`, Description → `System.Description`, Acceptance Criteria → `Microsoft.VSTS.Common.AcceptanceCriteria`, Priority → `Microsoft.VSTS.Common.Priority`, State → `System.State`, Tags → `System.Tags`).
   - Throw a descriptive exception if authentication fails (invalid/expired PAT), project is not found, or the API is unreachable.
   - **Layer**: Gateways
@@ -208,3 +208,7 @@ Enable a team member to point the AI Product Owner at an Azure DevOps backlog (c
 - **I1** (Instruction / CRITICAL): Scenario task layer labels used custom taxonomy. → **Fix**: Added explicit Layer Label Mapping that maps existing labels to template-required taxonomy.
 - **C2** (Consistency / HIGH): Scenario-1 Technical Questions still treated WIQL scope as unresolved while master marked it resolved. → **Fix**: Replaced open question with resolved decision text aligned to master plan.
 - **U2** (Underspec / MEDIUM): `BacklogCapExceededException` required by tasks but missing from Files To Alter. → **Fix**: Added `Services/BacklogCapExceededException.cs` to Files To Alter.
+
+### Session 2026-03-27
+
+- **Filtering**: WIQL query now excludes terminal states (Closed, Removed) via `[System.State] NOT IN ('Closed', 'Removed')`. Updated TASK-1-06 and Target Behavior description.

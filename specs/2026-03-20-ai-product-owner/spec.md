@@ -13,7 +13,7 @@
 
 ### Scenario 1 — Connect to an Existing Backlog (Priority: P1)
 
-A team member points the AI Product Owner at an existing backlog by providing a location or connection to where their stories are managed. The AI Product Owner reads all user stories — including titles, descriptions, acceptance criteria, current priority, labels, and any other available fields — and confirms what it found. The team member can verify the AI Product Owner has ingested the backlog correctly before proceeding.
+A team member points the AI Product Owner at an existing backlog by providing a location or connection to where their stories are managed. The AI Product Owner reads all active user stories (excluding Closed and Removed items) — including titles, descriptions, acceptance criteria, current priority, labels, and any other available fields — and confirms what it found. The team member can verify the AI Product Owner has ingested the backlog correctly before proceeding.
 
 **Why this priority**: The system cannot do anything useful without first reading the backlog. Connecting and ingesting is the prerequisite for all other capabilities. If this doesn't work, nothing else matters.
 
@@ -89,7 +89,7 @@ The team member shares additional context with the AI Product Owner — such as 
 ## Functional Requirements _(mandatory)_
 
 - **FR-001**: The system MUST allow the team member to point it at an existing backlog by providing a backlog location.
-- **FR-002**: The system MUST read and ingest all user stories from the connected backlog, including all available fields (title, description, acceptance criteria, priority, labels, status).
+- **FR-002**: The system MUST read and ingest all non-terminal user stories (excluding Closed and Removed) from the connected backlog, including all available fields (title, description, acceptance criteria, priority, labels, status).
 - **FR-003**: The system MUST present a summary of ingested stories so the team member can verify completeness.
 - **FR-004**: The system MUST produce a suggested priority order for all ingested stories when requested by the team member.
 - **FR-005**: The system MUST include a justification for each story's suggested position in the priority order.

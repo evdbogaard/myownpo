@@ -57,7 +57,7 @@ public record UserStory
 | `AcceptanceCriteria` | `Microsoft.VSTS.Common.AcceptanceCriteria`      | HTML content; may be empty                        |
 | `Priority`           | `Microsoft.VSTS.Common.Priority`                | Integer 1–4 in Azure DevOps; nullable if unset    |
 | `Labels`             | `System.Tags`                                   | Semicolon-delimited string in Azure DevOps; split into list |
-| `Status`             | `System.State`                                  | e.g., "New", "Active", "Resolved", "Closed"      |
+| `Status`             | `System.State`                                  | e.g., "New", "Active", "Resolved". Closed and Removed stories are excluded at query time. |
 
 **Design decisions**:
 - `Id` is `string` (not `int`) so the `IBacklogGateway` abstraction stays provider-agnostic. Azure DevOps uses integer IDs; other providers may use GUIDs or slugs.

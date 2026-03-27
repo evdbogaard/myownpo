@@ -70,7 +70,7 @@ Build a read-only, suggestion-only MVP console application that connects to an A
 ## Delivery Sequence _(mandatory)_
 
 1. **Slice 1 — Domain Models + Azure DevOps Gateway + Ingestion (Scenario 1 core)**
-   Create all domain models. Implement `IBacklogGateway` and `AzureDevOpsBacklogGateway` (PAT auth, WIQL query). Implement `IBacklogService` and `BacklogService` (connect, ingest, summarize). Set up DI, user secrets, and `appsettings.json` in `Program.cs`. Create a minimal console loop with `connect` and `refresh` commands. Create unit tests for `BacklogService` and `AzureDevOpsBacklogGateway`.
+   Create all domain models. Implement `IBacklogGateway` and `AzureDevOpsBacklogGateway` (PAT auth, WIQL query filtering to active User Stories only — excludes Closed and Removed). Implement `IBacklogService` and `BacklogService` (connect, ingest, summarize). Set up DI, user secrets, and `appsettings.json` in `Program.cs`. Create a minimal console loop with `connect` and `refresh` commands. Create unit tests for `BacklogService` and `AzureDevOpsBacklogGateway`.
 
 2. **Slice 2 — Agent Framework + Prioritization (Scenario 2 core)**
    Define the AI Product Owner agent using the Microsoft Agent Framework with a system prompt and tools. Register backlog service methods as agent tools. Implement `IPrioritizationService` and `PrioritizationService` (orchestrates agent invocations for suggest, explain, re-suggest). Replace the command-based console loop with a conversational agent loop. Create unit tests for `PrioritizationService` (with mocked agent/`IChatClient`).
@@ -129,7 +129,7 @@ Build a read-only, suggestion-only MVP console application that connects to an A
 
 ~~**LLM provider selection**~~: **Resolved** — Use Azure OpenAI via `Azure.AI.OpenAI` + `Microsoft.Extensions.AI.OpenAI`. Configuration: endpoint and deployment name supplied via `appsettings.json` in an `AzureOpenAi` section; API key supplied via user secrets (`AzureOpenAi:ApiKey`).
 
-~~**Azure DevOps query scope**~~: **Resolved** — Connection config supplied via `appsettings.json` (`AzureDevOps:OrganizationUrl`, `AzureDevOps:ProjectName`, optional `AzureDevOps:AreaPath`). The backlog is hard-set to a specific project. The PAT is loaded from user secrets (`AzureDevOps:Pat`). The gateway uses a default WIQL query for all User Story work items in the configured project.
+~~**Azure DevOps query scope**~~: **Resolved** — Connection config supplied via `appsettings.json` (`AzureDevOps:OrganizationUrl`, `AzureDevOps:ProjectName`, optional `AzureDevOps:AreaPath`). The backlog is hard-set to a specific project. The PAT is loaded from user secrets (`AzureDevOps:Pat`). The gateway uses a default WIQL query for all User Story work items in the configured project, excluding terminal states (Closed, Removed).
 
 ~~**Microsoft Agent Framework version**~~: **Resolved** — Use `Microsoft.Agents.Builder` version **1.0.0-rc4**.
 
@@ -148,3 +148,7 @@ Build a read-only, suggestion-only MVP console application that connects to an A
 ### Session 2026-03-24 #2
 
 - **C1** (Consistency / HIGH): Integration test names drifted between master and scenario plans. → **Fix**: Aligned master integration method names to scenario plan canon (`ConnectAndIngest_AzureDevOps_ReturnsExpectedSummary`, `SuggestPriorities_IngestedBacklog_ReturnsCompleteRankedList`).
+
+### Session 2026-03-27
+
+- **Filtering**: WIQL query now excludes Closed and Removed work items. Updated Slice 1 and Unresolved Blockers to reflect `[System.State] NOT IN ('Closed', 'Removed')` filter.

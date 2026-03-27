@@ -68,7 +68,8 @@ public class AzureDevOpsWorkItemTrackingClient(IOptions<AzureDevOpsSettings> set
 
         return $"SELECT [System.Id] FROM WorkItems " +
             $"WHERE [System.TeamProject] = '{escapedProject}' " +
-            "AND [System.WorkItemType] = 'User Story'" +
+            "AND [System.WorkItemType] = 'User Story' " +
+            "AND [System.State] NOT IN ('Closed', 'Removed')" +
             $"{areaFilter} ORDER BY [System.ChangedDate] DESC";
     }
 
