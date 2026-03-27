@@ -9,9 +9,9 @@ namespace MyOwnPo.Services;
 
 public class PrioritizationService : IPrioritizationService
 {
-    private const int MaxHistoryMessages = 20;
+	private const int MaxHistoryMessages = 20;
 
-    private static readonly string SystemPrompt = """
+	private static readonly string SystemPrompt = """
 		You are the AI Product Owner — an expert in agile product management, user story prioritization, and backlog grooming.
 
 		## Role
@@ -27,61 +27,62 @@ public class PrioritizationService : IPrioritizationService
 		- When the team member asks follow-up questions (e.g., "why is story X above story Y?"), explain your reasoning using the context from the conversation.
 		- When the team member provides feedback or additional context, incorporate it and offer an updated ranking if appropriate.
 		- Keep responses clear, well-formatted, and actionable. Use numbered lists for rankings.
+		- The story existing only out of just dashes (----), this is a separator story that shows stories above it are ready to be picked up or active, below it are stories that need more information or refinement.
 		""";
 
-    private readonly IChatClient _chatClient;
-    private readonly IBacklogService _backlogService;
-    private readonly List<ChatMessage> _history = [];
-    private readonly ChatOptions _chatOptions;
+	private readonly IChatClient _chatClient;
+	private readonly IBacklogService _backlogService;
+	private readonly List<ChatMessage> _history = [];
+	private readonly ChatOptions _chatOptions;
 
-    public PrioritizationService(IChatClient chatClient, IBacklogService backlogService)
-    {
-        _chatClient = chatClient;
-        _backlogService = backlogService;
+	public PrioritizationService(IChatClient chatClient, IBacklogService backlogService)
+	{
+		_chatClient = chatClient;
+		_backlogService = backlogService;
 
-        _history.Add(new ChatMessage(ChatRole.System, SystemPrompt));
+		_history.Add(new ChatMessage(ChatRole.System, SystemPrompt));
 
-        _chatOptions = new ChatOptions
-        {
-            Tools = [AIFunctionFactory.Create(GetBacklogStories, "GetBacklogStories", "Retrieves all user stories currently loaded from the backlog.")]
-        };
-    }
+		_chatOptions = new ChatOptions
+		{
+			Tools = [AIFunctionFactory.Create(GetBacklogStories, "GetBacklogStories", "Retrieves all user stories currently loaded from the backlog.")]
+		};
+	}
 
-    public async Task<string> Chat(string userMessage)
-    {
-        _history.Add(new ChatMessage(ChatRole.User, userMessage));
-        TrimHistory();
+	public async Task<string> Chat(string userMessage)
+	{
+		_history.Add(new ChatMessage(ChatRole.User, userMessage));
+		TrimHistory();
 
-        var response = await _chatClient.GetResponseAsync(_history, _chatOptions);
-        _history.AddMessages(response);
+		var response = await _chatClient.GetResponseAsync(_history, _chatOptions);
+		_history.AddMessages(response);
 
-        return response.Text ?? string.Empty;
-    }
+		return response.Text ?? string.Empty;
+	}
 
-    [Description("Retrieves all user stories currently loaded from the backlog.")]
-    private string GetBacklogStories()
-    {
-        var stories = _backlogService.GetStories();
-        return JsonSerializer.Serialize(stories.Select(story => new
-        {
-            story.Id,
-            story.Title,
-            story.Description,
-            story.AcceptanceCriteria,
-            story.Priority,
-            story.Labels,
-            story.Status,
-            story.MissingFields
-        }));
-    }
+	[Description("Retrieves all user stories currently loaded from the backlog.")]
+	private string GetBacklogStories()
+	{
+		var stories = _backlogService.GetStories();
+		return JsonSerializer.Serialize(stories.Select(story => new
+		{
+			story.Id,
+			story.Title,
+			story.Description,
+			story.AcceptanceCriteria,
+			story.Priority,
+			story.Labels,
+			story.Status,
+			story.MissingFields
+		}));
+	}
 
-    private void TrimHistory()
-    {
-        while (_history.Count > MaxHistoryMessages)
-        {
-            // Keep the system prompt (index 0), remove the oldest non-system message.
-            if (_history.Count > 1)
-                _history.RemoveAt(1);
-        }
-    }
+	private void TrimHistory()
+	{
+		while (_history.Count > MaxHistoryMessages)
+		{
+			// Keep the system prompt (index 0), remove the oldest non-system message.
+			if (_history.Count > 1)
+				_history.RemoveAt(1);
+		}
+	}
 }
