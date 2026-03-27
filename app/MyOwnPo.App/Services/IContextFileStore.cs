@@ -4,7 +4,7 @@ namespace MyOwnPo.Services;
 
 public interface IContextFileStore
 {
-    ProjectContext? Load();
-    void Save(ProjectContext context);
-    void Delete();
+	ProjectContext? Load();
+	void Save(ProjectContext context);
+	void Delete();
 }

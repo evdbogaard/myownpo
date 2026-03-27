@@ -14,12 +14,14 @@ public class ProjectContextService(IContextFileStore contextFileStore) : IProjec
     public void SetContext(ProjectContext context)
     {
         _context = context;
+        _contextFileStore.Save(context);
     }
 
     public void UpdateContext(Action<ProjectContext> updater)
     {
         _context ??= new ProjectContext();
         updater(_context);
+        _contextFileStore.Save(_context);
     }
 
     public ProjectContext? GetContext() => _context;

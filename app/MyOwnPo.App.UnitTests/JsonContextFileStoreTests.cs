@@ -132,4 +132,33 @@ public class JsonContextFileStoreTests : IDisposable
 
         Assert.Null(exception);
     }
+
+    [Fact]
+    public void Save_ContextWithNullFields_OmitsNullFieldsFromJson()
+    {
+        var sut = CreateStore();
+        var context = new ProjectContext { Vision = "Only vision set" };
+
+        sut.Save(context);
+
+        var json = File.ReadAllText(TempFile());
+        Assert.Contains("Vision", json);
+        Assert.DoesNotContain("BusinessGoals", json);
+        Assert.DoesNotContain("TargetUsers", json);
+        Assert.DoesNotContain("SprintFocus", json);
+        Assert.DoesNotContain("Constraints", json);
+    }
+
+    [Fact]
+    public void Save_OverwritesExistingFile()
+    {
+        var sut = CreateStore();
+        sut.Save(new ProjectContext { Vision = "First" });
+
+        sut.Save(new ProjectContext { Vision = "Second" });
+
+        var loaded = sut.Load();
+        Assert.NotNull(loaded);
+        Assert.Equal("Second", loaded.Vision);
+    }
 }

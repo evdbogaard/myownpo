@@ -146,4 +146,44 @@ public class ProjectContextServiceTests
         Assert.Equal(ContextLoadResult.Malformed, result);
         Assert.False(sut.HasContext);
     }
+
+    [Fact]
+    public void SetContext_ValidContext_PersistsToFile()
+    {
+        var fileStore = new Mock<IContextFileStore>(MockBehavior.Strict);
+        var context = new ProjectContext { Vision = "Persist me" };
+        fileStore.Setup(mock => mock.Save(context));
+        var sut = CreateService(fileStore);
+
+        sut.SetContext(context);
+
+        fileStore.Verify(mock => mock.Save(context), Times.Once);
+    }
+
+    [Fact]
+    public void UpdateContext_ExistingContext_PersistsToFile()
+    {
+        var fileStore = new Mock<IContextFileStore>(MockBehavior.Loose);
+        var sut = CreateService(fileStore);
+        sut.SetContext(new ProjectContext { Vision = "Original" });
+        fileStore.Invocations.Clear();
+
+        sut.UpdateContext(ctx => ctx.SprintFocus = "New focus");
+
+        fileStore.Verify(mock => mock.Save(It.Is<ProjectContext>(c => c.SprintFocus == "New focus")), Times.Once);
+    }
+
+    [Fact]
+    public void SetContext_SaveThrows_RetainsInMemoryContext()
+    {
+        var fileStore = new Mock<IContextFileStore>(MockBehavior.Strict);
+        var context = new ProjectContext { Vision = "Survive failure" };
+        fileStore.Setup(mock => mock.Save(context)).Throws(new IOException("disk full"));
+        var sut = CreateService(fileStore);
+
+        Assert.Throws<IOException>(() => sut.SetContext(context));
+
+        Assert.True(sut.HasContext);
+        Assert.Same(context, sut.GetContext());
+    }
 }

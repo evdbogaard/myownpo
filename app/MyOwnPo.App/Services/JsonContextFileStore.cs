@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using MyOwnPo.Models;
 
@@ -7,7 +8,11 @@ namespace MyOwnPo.Services;
 public class JsonContextFileStore(string filePath) : IContextFileStore
 {
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
-    private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     private readonly string _filePath = filePath;
 
