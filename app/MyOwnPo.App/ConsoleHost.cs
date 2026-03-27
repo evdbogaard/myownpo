@@ -18,6 +18,23 @@ public class ConsoleHost(IBacklogService backlogService, IPrioritizationService 
 
     public async Task Run(CancellationToken cancellationToken = default)
     {
+        var loadResult = _projectContextService.LoadFromFile();
+        switch (loadResult)
+        {
+            case ContextLoadResult.Loaded:
+                var context = _projectContextService.GetContext()!;
+                _output.WriteLine("Project context loaded from file:");
+                WriteContextField("Vision", context.Vision);
+                WriteContextField("Business goals", context.BusinessGoals);
+                WriteContextField("Target users", context.TargetUsers);
+                WriteContextField("Sprint focus", context.SprintFocus);
+                WriteContextField("Constraints", context.Constraints);
+                break;
+            case ContextLoadResult.Malformed:
+                _output.WriteLine("Warning: Could not read project context file. Starting without context.");
+                break;
+        }
+
         WriteHelp();
 
         while (!cancellationToken.IsCancellationRequested)

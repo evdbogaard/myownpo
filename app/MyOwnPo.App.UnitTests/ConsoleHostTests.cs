@@ -124,8 +124,13 @@ public class ConsoleHostTests
     {
         var input = new StringReader(inputText);
         var output = new StringWriter();
-        var contextService = projectContextService ?? new Mock<IProjectContextService>(MockBehavior.Loose).Object;
-        var host = new ConsoleHost(backlogService, prioritizationService, contextService, input, output);
+        if (projectContextService is null)
+        {
+            var mock = new Mock<IProjectContextService>(MockBehavior.Loose);
+            mock.Setup(m => m.LoadFromFile()).Returns(ContextLoadResult.NoFile);
+            projectContextService = mock.Object;
+        }
+        var host = new ConsoleHost(backlogService, prioritizationService, projectContextService, input, output);
         return (input, output, host);
     }
 
@@ -147,6 +152,9 @@ public class ConsoleHostTests
         var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
         var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
         var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
+        contextService
+            .Setup(mock => mock.LoadFromFile())
+            .Returns(ContextLoadResult.NoFile);
         contextService
             .Setup(mock => mock.SetContext(It.IsAny<ProjectContext>()));
         var (input, output, sut) = CreateHost(
@@ -172,6 +180,9 @@ public class ConsoleHostTests
         var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
         var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
         var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
+        contextService
+            .Setup(mock => mock.LoadFromFile())
+            .Returns(ContextLoadResult.NoFile);
         contextService
             .Setup(mock => mock.GetContext())
             .Returns(new ProjectContext
@@ -203,6 +214,9 @@ public class ConsoleHostTests
         var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
         var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
         contextService
+            .Setup(mock => mock.LoadFromFile())
+            .Returns(ContextLoadResult.NoFile);
+        contextService
             .Setup(mock => mock.GetContext())
             .Returns((ProjectContext?)null);
         var (input, output, sut) = CreateHost(
@@ -223,6 +237,9 @@ public class ConsoleHostTests
         var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
         var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
         contextService
+            .Setup(mock => mock.LoadFromFile())
+            .Returns(ContextLoadResult.NoFile);
+        contextService
             .Setup(mock => mock.ClearContext());
         var (input, output, sut) = CreateHost(
             backlogService.Object,
@@ -234,5 +251,79 @@ public class ConsoleHostTests
 
         contextService.Verify(mock => mock.ClearContext(), Times.Once);
         Assert.Contains("Project context cleared", output.ToString());
+    }
+
+    [Fact]
+    public async Task Run_ContextFileExists_DisplaysLoadedMessage()
+    {
+        var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+        var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+        var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
+        contextService
+            .Setup(mock => mock.LoadFromFile())
+            .Returns(ContextLoadResult.Loaded);
+        contextService
+            .Setup(mock => mock.GetContext())
+            .Returns(new ProjectContext
+            {
+                Vision = "Best tool ever",
+                BusinessGoals = "Revenue growth",
+                TargetUsers = "Enterprise teams",
+                SprintFocus = "Onboarding",
+                Constraints = "Limited budget"
+            });
+        var (input, output, sut) = CreateHost(
+            backlogService.Object,
+            prioritizationService.Object,
+            "exit\n",
+            contextService.Object);
+
+        await sut.Run();
+
+        var text = output.ToString();
+        Assert.Contains("Project context loaded from file:", text);
+        Assert.Contains("Best tool ever", text);
+        Assert.Contains("Revenue growth", text);
+        Assert.Contains("Enterprise teams", text);
+        Assert.Contains("Onboarding", text);
+        Assert.Contains("Limited budget", text);
+    }
+
+    [Fact]
+    public async Task Run_NoContextFile_NoLoadMessage()
+    {
+        var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+        var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+        var (input, output, sut) = CreateHost(
+            backlogService.Object,
+            prioritizationService.Object,
+            "exit\n");
+
+        await sut.Run();
+
+        var text = output.ToString();
+        Assert.DoesNotContain("Project context loaded from file:", text);
+        Assert.DoesNotContain("Warning:", text);
+    }
+
+    [Fact]
+    public async Task Run_MalformedContextFile_DisplaysWarning()
+    {
+        var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+        var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+        var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
+        contextService
+            .Setup(mock => mock.LoadFromFile())
+            .Returns(ContextLoadResult.Malformed);
+        var (input, output, sut) = CreateHost(
+            backlogService.Object,
+            prioritizationService.Object,
+            "exit\n",
+            contextService.Object);
+
+        await sut.Run();
+
+        var text = output.ToString();
+        Assert.Contains("Warning: Could not read project context file. Starting without context.", text);
     }
 }

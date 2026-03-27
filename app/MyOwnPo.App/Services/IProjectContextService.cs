@@ -9,4 +9,5 @@ public interface IProjectContextService
     ProjectContext? GetContext();
     void ClearContext();
     bool HasContext { get; }
+    ContextLoadResult LoadFromFile();
 }
