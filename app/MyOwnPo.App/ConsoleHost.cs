@@ -3,9 +3,17 @@ using MyOwnPo.Services;
 
 namespace MyOwnPo;
 
-public class ConsoleHost(IBacklogService backlogService)
+public class ConsoleHost(IBacklogService backlogService, IPrioritizationService prioritizationService, TextReader input, TextWriter output)
 {
     private readonly IBacklogService _backlogService = backlogService;
+    private readonly IPrioritizationService _prioritizationService = prioritizationService;
+    private readonly TextReader _input = input;
+    private readonly TextWriter _output = output;
+
+    public ConsoleHost(IBacklogService backlogService, IPrioritizationService prioritizationService)
+        : this(backlogService, prioritizationService, Console.In, Console.Out)
+    {
+    }
 
     public async Task Run(CancellationToken cancellationToken = default)
     {
@@ -13,19 +21,19 @@ public class ConsoleHost(IBacklogService backlogService)
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            Console.Write("> ");
-            var input = Console.ReadLine();
-            if (input is null)
+            _output.Write("> ");
+            var line = _input.ReadLine();
+            if (line is null)
                 continue;
 
-            var command = input.Trim();
+            var command = line.Trim();
             if (command.Length == 0)
                 continue;
 
             if (string.Equals(command, "exit", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(command, "quit", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Bye.");
+                _output.WriteLine("Bye.");
                 return;
             }
 
@@ -43,18 +51,17 @@ public class ConsoleHost(IBacklogService backlogService)
                         await HandleRefresh();
                         break;
                     default:
-                        Console.WriteLine($"Unknown command: '{command}'.");
-                        WriteHelp();
+                        await HandleChat(command);
                         break;
                 }
             }
             catch (BacklogCapExceededException ex)
             {
-                Console.WriteLine($"Backlog too large: {ex.StoryCount} stories found. Narrow scope (for example by area path) and try again.");
+                _output.WriteLine($"Backlog too large: {ex.StoryCount} stories found. Narrow scope (for example by area path) and try again.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Operation failed: {ex.Message}");
+                _output.WriteLine($"Operation failed: {ex.Message}");
             }
         }
     }
@@ -62,18 +69,18 @@ public class ConsoleHost(IBacklogService backlogService)
     private async Task HandleConnect()
     {
         var stories = await _backlogService.Connect();
-        Console.WriteLine($"Connected. Stories found: {stories.Count}.");
+        _output.WriteLine($"Connected. Stories found: {stories.Count}.");
 
         if (stories.Count == 0)
         {
-            Console.WriteLine("No user stories were found in the configured backlog.");
+            _output.WriteLine("No user stories were found in the configured backlog.");
             return;
         }
 
-        Console.WriteLine("Titles:");
+        _output.WriteLine("Titles:");
         foreach (var story in stories.OrderBy(story => story.Title, StringComparer.OrdinalIgnoreCase))
         {
-            Console.WriteLine($"- [{story.Id}] {story.Title}");
+            _output.WriteLine($"- [{story.Id}] {story.Title}");
         }
 
         WriteMissingFieldWarnings(stories);
@@ -84,18 +91,30 @@ public class ConsoleHost(IBacklogService backlogService)
         var diff = await _backlogService.Refresh();
         if (!diff.HasChanges)
         {
-            Console.WriteLine("Refresh complete. No changes detected.");
+            _output.WriteLine("Refresh complete. No changes detected.");
             return;
         }
 
-        Console.WriteLine("Refresh complete.");
+        _output.WriteLine("Refresh complete.");
         WriteDiff("Added", diff.Added);
         WriteDiff("Removed", diff.Removed);
         WriteDiff("Changed", diff.Changed);
         WriteMissingFieldWarnings(_backlogService.GetStories());
     }
 
-    private static void WriteMissingFieldWarnings(IEnumerable<UserStory> stories)
+    private async Task HandleChat(string userMessage)
+    {
+        if (_backlogService.GetStories().Count == 0)
+        {
+            _output.WriteLine("No backlog loaded. Use 'connect' to load stories first.");
+            return;
+        }
+
+        var response = await _prioritizationService.Chat(userMessage);
+        _output.WriteLine(response);
+    }
+
+    private void WriteMissingFieldWarnings(IEnumerable<UserStory> stories)
     {
         var incompleteStories = stories
             .Where(story => story.MissingFields.Count > 0)
@@ -103,34 +122,36 @@ public class ConsoleHost(IBacklogService backlogService)
         if (incompleteStories.Count == 0)
             return;
 
-        Console.WriteLine("Stories with missing fields:");
+        _output.WriteLine("Stories with missing fields:");
         foreach (var story in incompleteStories)
         {
-            Console.WriteLine($"- [{story.Id}] {story.Title}: {string.Join(", ", story.MissingFields)}");
+            _output.WriteLine($"- [{story.Id}] {story.Title}: {string.Join(", ", story.MissingFields)}");
         }
     }
 
-    private static void WriteDiff(string label, IReadOnlyList<string> values)
+    private void WriteDiff(string label, IReadOnlyList<string> values)
     {
         if (values.Count == 0)
         {
-            Console.WriteLine($"{label}: none");
+            _output.WriteLine($"{label}: none");
             return;
         }
 
-        Console.WriteLine($"{label} ({values.Count}):");
+        _output.WriteLine($"{label} ({values.Count}):");
         foreach (var value in values)
         {
-            Console.WriteLine($"- {value}");
+            _output.WriteLine($"- {value}");
         }
     }
 
-    private static void WriteHelp()
+    private void WriteHelp()
     {
-        Console.WriteLine("Commands:");
-        Console.WriteLine("- connect : connect and ingest user stories");
-        Console.WriteLine("- refresh : refresh backlog and show diff");
-        Console.WriteLine("- help    : show command help");
-        Console.WriteLine("- exit    : quit the app");
+        _output.WriteLine("Commands:");
+        _output.WriteLine("- connect : connect and ingest user stories");
+        _output.WriteLine("- refresh : refresh backlog and show diff");
+        _output.WriteLine("- help    : show command help");
+        _output.WriteLine("- exit    : quit the app");
+        _output.WriteLine();
+        _output.WriteLine("Or type a question to chat with the AI Product Owner.");
     }
 }
