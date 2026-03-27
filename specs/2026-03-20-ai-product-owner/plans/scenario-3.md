@@ -57,11 +57,11 @@ Allow the team member to provide project context — product vision, business go
   - **Layer**: Services
   - **Reason**: Simple in-memory state management. No persistence needed for MVP.
 
-- [ ] **TASK-3-04**: Register `GetProjectContext` as an agent tool in the Product Owner agent definition.
+- [ ] **TASK-3-04**: Register `GetProjectContext` as an additional tool in `PrioritizationService._chatOptions.Tools` via `AIFunctionFactory.Create()`.
   - The tool calls `IProjectContextService.GetContext()` and returns the context as a structured result.
-  - Update the agent's system prompt to instruct: "When generating prioritization suggestions, always check for project context using the GetProjectContext tool. If context exists, reference the vision, goals, and constraints in your justifications. If no context is set, note that providing context would improve the quality of suggestions."
-  - **Layer**: Agents / Services
-  - **Reason**: The agent needs access to context to produce context-aware suggestions. Registering as a tool follows the Agent Framework pattern and keeps the agent's reasoning flexible.
+  - Update the system prompt in `PrioritizationService` to instruct: "When generating prioritization suggestions, always check for project context using the GetProjectContext tool. If context exists, reference the vision, goals, and constraints in your justifications. If no context is set, note that providing context would improve the quality of suggestions."
+  - **Layer**: Services
+  - **Reason**: The agent needs access to context to produce context-aware suggestions. Registering as a tool follows the `AIFunctionFactory` pattern established in Scenario 2 and keeps the agent's reasoning flexible.
 
 - [ ] **TASK-3-05**: Add `context` command to `ConsoleHost`.
   - `context set` — prompt the user for each field (vision, goals, target users, sprint focus, constraints) interactively, or accept them as `--vision "..." --goals "..."` flags.
@@ -78,14 +78,14 @@ Allow the team member to provide project context — product vision, business go
 
 ## Files To Alter _(mandatory)_
 
-| File                                                    | Change Type | Why                                                                                            |
-| ------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
-| `Models/ProjectContext.cs`                              | Add         | Project context model                                                                          |
-| `Services/IProjectContextService.cs`                    | Add         | Context management interface                                                                   |
-| `Services/ProjectContextService.cs`                     | Add         | In-memory context management                                                                   |
-| `Agents/ProductOwnerAgentDefinition.cs`                 | Modify      | Add `GetProjectContext` tool registration and update system prompt for context-aware reasoning |
-| `ConsoleHost.cs`                                        | Modify      | Add `context set`, `context show`, `context clear` commands                                    |
-| `Program.cs`                                            | Modify      | Register `IProjectContextService` as singleton                                                 |
+| File                                                      | Change Type | Why                                                                                            |
+| --------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| `Models/ProjectContext.cs`                                | Add         | Project context model                                                                          |
+| `Services/IProjectContextService.cs`                      | Add         | Context management interface                                                                   |
+| `Services/ProjectContextService.cs`                       | Add         | In-memory context management                                                                   |
+| `Services/PrioritizationService.cs`                       | Modify      | Add `GetProjectContext` tool registration and update system prompt for context-aware reasoning |
+| `ConsoleHost.cs`                                          | Modify      | Add `context set`, `context show`, `context clear` commands                                    |
+| `Program.cs`                                              | Modify      | Register `IProjectContextService` as singleton                                                 |
 | `app/MyOwnPo.App.UnitTests/ProjectContextServiceTests.cs` | Add         | Unit tests for context management                                                              |
 | `app/MyOwnPo.App.UnitTests/PrioritizationServiceTests.cs` | Modify      | Add tests verifying context flows into suggestions                                             |
 

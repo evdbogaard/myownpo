@@ -9,7 +9,7 @@
 
 ## Planning Intent _(mandatory)_
 
-Build a read-only, suggestion-only MVP console application that connects to an Azure DevOps backlog, ingests user stories, and produces AI-powered prioritization suggestions using the Microsoft Agent Framework. The system never modifies the backlog. The console app runs a conversational agent loop where the team member interacts with the AI Product Owner agent via natural language.
+Build a read-only, suggestion-only MVP console application that connects to an Azure DevOps backlog, ingests user stories, and produces AI-powered prioritization suggestions using `Microsoft.Extensions.AI` (`IChatClient` with function calling via `UseFunctionInvocation()` middleware). The system never modifies the backlog. The console app runs a conversational agent loop where the team member interacts with the AI Product Owner agent via natural language.
 
 **Non-goals for this plan**:
 
@@ -33,8 +33,8 @@ Build a read-only, suggestion-only MVP console application that connects to an A
   - Tab indentation, 4-space tab width (per `.editorconfig`).
   - `dotnet format --verify-no-changes` must pass.
 - **Dependencies**:
-  - `Microsoft.Agents.Builder` 1.0.0-rc4 / `Microsoft.Agents.Core` — Microsoft Agent Framework for defining the AI Product Owner agent with tools, conversation history, and structured output.
-  - `Azure.AI.OpenAI` + `Microsoft.Extensions.AI.OpenAI` — Azure OpenAI as the LLM provider, providing `IChatClient` for the Agent Framework.
+  - `Microsoft.Agents.AI.OpenAI` 1.0.0-rc4 — bridges Azure OpenAI SDK to `IChatClient`. Transitively provides `Microsoft.Extensions.AI` >= 10.3.0, `Microsoft.Extensions.AI.OpenAI` >= 10.3.0, `Microsoft.Extensions.AI.Abstractions`, `Microsoft.Agents.AI`.
+  - `Azure.AI.OpenAI` 2.3.0-beta.1 — Azure OpenAI SDK client. Must be added explicitly (not transitive from `Microsoft.Agents.AI.OpenAI`).
   - `Microsoft.TeamFoundation.WorkItemTracking.WebApi` + `Microsoft.VisualStudio.Services.Client` — Azure DevOps REST API client for reading work items.
   - `Microsoft.Extensions.DependencyInjection` for DI.
   - `Microsoft.Extensions.Hosting` for host builder (DI + config + secrets).
@@ -57,12 +57,12 @@ Build a read-only, suggestion-only MVP console application that connects to an A
 
 - [ ] **Define domain models**: `UserStory`, `BacklogConnection`, `PrioritizationSuggestion`, `SuggestedStoryRank`, `ProjectContext` in a `Models/` folder. Define `AzureDevOpsSettings` in `Gateways/`. See [models.md](specs/2026-03-20-ai-product-owner/plans/models.md) for full model definitions.
 - [ ] **Create `IBacklogGateway` abstraction** and `AzureDevOpsBacklogGateway` implementation in a `Gateways/` folder. The gateway uses the Azure DevOps REST API client with PAT authentication.
-- [ ] **Define the AI Product Owner agent** using the Microsoft Agent Framework. The agent is configured with a system prompt (Product Owner persona), tools (backlog operations, context management), and conversation history. This replaces the manual `ILlmService` + prompt-building approach.
+- [ ] **Define the AI Product Owner agent** behavior inside `PrioritizationService` using `IChatClient` with `UseFunctionInvocation()` middleware. The agent is configured with a system prompt (Product Owner persona), tools registered via `AIFunctionFactory.Create()`, and conversation history managed in a `List<ChatMessage>`. No separate agent definition class.
 - [ ] **Set up DI and hosting** in `Program.cs` using `Microsoft.Extensions.Hosting` — register all services, gateways, the agent, bind configuration from `appsettings.json`, and configure user secrets for the PAT.
 - [ ] **Create `appsettings.json`** with the Azure DevOps configuration (organization URL, project name, optional area path) and Azure OpenAI configuration (endpoint, deployment name). The Azure DevOps PAT and Azure OpenAI API key are loaded from user secrets (not `appsettings.json`).
 - [ ] **Create the conversational console loop** (`ConsoleHost` or similar) that sends user messages to the agent and displays agent responses. The agent dispatches tool calls to services internally.
 - [ ] **Create test projects**: `app/MyOwnPo.App.UnitTests/MyOwnPo.App.UnitTests.csproj` and optionally `tests/MyOwnPo.IntegrationTests/MyOwnPo.IntegrationTests.csproj`.
-- [ ] **Add NuGet packages** to `app/MyOwnPo.App/MyOwnPo.App.csproj`: `Microsoft.Agents.Builder` 1.0.0-rc4, `Azure.AI.OpenAI`, `Microsoft.Extensions.AI.OpenAI`, Azure DevOps client libraries, `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.Configuration.UserSecrets`.
+- [ ] **Add NuGet packages** to `app/MyOwnPo.App/MyOwnPo.App.csproj`: `Microsoft.Agents.AI.OpenAI` 1.0.0-rc4, `Azure.AI.OpenAI` 2.3.0-beta.1, Azure DevOps client libraries, `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.Configuration.UserSecrets`.
 - [ ] **Handle the "refuse to modify" edge case** in the agent's system prompt — instruct the agent to decline modification requests and offer suggestions instead (FR-006).
 
 ---
@@ -72,11 +72,11 @@ Build a read-only, suggestion-only MVP console application that connects to an A
 1. **Slice 1 — Domain Models + Azure DevOps Gateway + Ingestion (Scenario 1 core)**
    Create all domain models. Implement `IBacklogGateway` and `AzureDevOpsBacklogGateway` (PAT auth, WIQL query filtering to active User Stories only — excludes Closed and Removed). Implement `IBacklogService` and `BacklogService` (connect, ingest, summarize). Set up DI, user secrets, and `appsettings.json` in `Program.cs`. Create a minimal console loop with `connect` and `refresh` commands. Create unit tests for `BacklogService` and `AzureDevOpsBacklogGateway`.
 
-2. **Slice 2 — Agent Framework + Prioritization (Scenario 2 core)**
-   Define the AI Product Owner agent using the Microsoft Agent Framework with a system prompt and tools. Register backlog service methods as agent tools. Implement `IPrioritizationService` and `PrioritizationService` (orchestrates agent invocations for suggest, explain, re-suggest). Replace the command-based console loop with a conversational agent loop. Create unit tests for `PrioritizationService` (with mocked agent/`IChatClient`).
+2. **Slice 2 — AI Agent + Prioritization (Scenario 2 core)**
+   Define the AI Product Owner agent behavior inside `PrioritizationService` using `IChatClient` with `UseFunctionInvocation()` middleware, a system prompt, and `AIFunctionFactory.Create()` for tool registration. Register `GetBacklogStories` as the agent tool. Implement `IPrioritizationService` / `PrioritizationService` with conversation history management. Replace the command-based console loop with a conversational agent loop (`ConsoleHost` accepts `TextReader`/`TextWriter` for testability). Create unit tests for `PrioritizationService` (with mocked `IChatClient`) and `ConsoleHost`.
 
 3. **Slice 3 — Project Context + Final Verification (Scenario 3)**
-   Implement `IProjectContextService` and `ProjectContextService`. Register context retrieval as an agent tool so the agent can access it when generating suggestions. Update the agent's system prompt to reference context when available and note its absence when not. Create unit tests for `ProjectContextService` and verify context flows into agent responses. After all scenarios are implemented, run the full verification suite (build, all unit tests, all integration tests, `dotnet format`, manual smoke test) to confirm edge cases from Slices 1–2 are covered end-to-end.
+   Implement `IProjectContextService` and `ProjectContextService`. Register context retrieval as an additional tool in `PrioritizationService._chatOptions.Tools` via `AIFunctionFactory.Create()` so the agent can access it when generating suggestions. Update the agent's system prompt to reference context when available and note its absence when not. Create unit tests for `ProjectContextService` and verify context flows into agent responses. After all scenarios are implemented, run the full verification suite (build, all unit tests, all integration tests, `dotnet format`, manual smoke test) to confirm edge cases from Slices 1–2 are covered end-to-end.
 
 ---
 
@@ -84,14 +84,14 @@ Build a read-only, suggestion-only MVP console application that connects to an A
 
 ### Unit Tests
 
-| Scenario       | Test Project              | Test Class                       | Method Pattern                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------- | ------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Scenario       | Test Project                | Test Class                       | Method Pattern                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------- | --------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Scenario 1     | `app/MyOwnPo.App.UnitTests` | `BacklogServiceTests`            | `Connect_ValidLocation_ReturnsStories`, `Connect_EmptyBacklog_ReturnsEmptyList`, `Connect_SingleStory_ReturnsSingleStory`, `Connect_StoriesWithMissingFields_StoriesHaveMissingFieldsPopulated`, `GetStories_AfterConnect_ReturnsStoredStories`, `Refresh_StoriesAdded_ReportsAdded`, `Refresh_StoriesRemoved_ReportsRemoved`, `Refresh_StoriesChanged_ReportsChanged`, `Refresh_NoChanges_ReportsNoChanges`, `Connect_MoreThan100Stories_ReturnsLimitError`, `Connect_GatewayThrows_SurfacesGuidance` |
 | Scenario 1     | `app/MyOwnPo.App.UnitTests` | `AzureDevOpsBacklogGatewayTests` | `ReadStories_ValidResponse_ReturnsAllStories`, `ReadStories_InvalidPat_ThrowsAuthException`, `ReadStories_ProjectNotFound_ThrowsDescriptiveException`, `ReadStories_EmptyBacklog_ReturnsEmptyList`, `ReadStories_WorkItemFieldMapping_MapsAllFieldsCorrectly`                                                                                                                                                                                                                                          |
-| Scenario 2     | `app/MyOwnPo.App.UnitTests` | `PrioritizationServiceTests`     | `Suggest_ThreeStories_ReturnsAllThreeRankedWithJustifications`, `Suggest_StoriesWithDuplicateTitles_IncludesDuplicateWarnings`, `Suggest_AgentReturnsMalformedResponse_RetriesOrReportsError`, `Suggest_AgentOmitsStory_FlagsMissingStory`, `ExplainRanking_ValidPair_ReturnsExplanation`, `Resuggest_WithFeedback_ProducesUpdatedOrder`, `Chat_GeneralMessage_ReturnsAgentResponse`                                                                                                                   |
+| Scenario 2     | `app/MyOwnPo.App.UnitTests` | `PrioritizationServiceTests`     | `Chat_GeneralMessage_ReturnsAgentResponse`, `Chat_CallsGetResponseAsyncWithUserMessage`, `Chat_FirstMessage_IncludesSystemPrompt`, `Chat_MultipleCalls_AccumulatesHistory`, `Chat_NullResponseText_ReturnsEmptyString`, `Chat_ConfiguresChatOptionsWithTools`                                                                                                                                                                                                                                          |
 | Scenario 3     | `app/MyOwnPo.App.UnitTests` | `ProjectContextServiceTests`     | `SetContext_ValidContext_StoresContext`, `UpdateContext_ExistingContext_ReplacesContext`, `GetContext_NoContextSet_ReturnsNull`                                                                                                                                                                                                                                                                                                                                                                        |
 | Scenario 3     | `app/MyOwnPo.App.UnitTests` | `PrioritizationServiceTests`     | `Suggest_WithContext_JustificationsReferenceContext`, `Suggest_WithoutContext_NotesContextWouldHelp`                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Cross-scenario | `app/MyOwnPo.App.UnitTests` | `ConsoleHostTests`               | `HandleInput_ConnectCommand_CallsBacklogService`, `HandleInput_NaturalLanguage_ForwardsToAgent`, `HandleInput_SuggestWithNoBacklog_PromptsToConnect`, `HandleInput_SuggestWithSingleStory_ReportsMinimumRequired`, `HandleInput_ModifyRequest_ReturnsSuggestionOnlyMessage`, `HandleInput_UnknownCommand_ReturnsHelpText`                                                                                                                                                                              |
+| Cross-scenario | `app/MyOwnPo.App.UnitTests` | `ConsoleHostTests`               | `HandleInput_ConnectCommand_CallsBacklogService`, `HandleInput_NaturalLanguage_ForwardsToAgent`, `HandleInput_NaturalLanguageWithNoBacklog_PromptsToConnect`, `HandleInput_ExitCommand_Exits`, `HandleInput_HelpCommand_ShowsHelp`, `HandleInput_RefreshCommand_CallsBacklogService`                                                                                                                                                                                                                   |
 
 ### Integration Tests
 
@@ -131,7 +131,7 @@ Build a read-only, suggestion-only MVP console application that connects to an A
 
 ~~**Azure DevOps query scope**~~: **Resolved** — Connection config supplied via `appsettings.json` (`AzureDevOps:OrganizationUrl`, `AzureDevOps:ProjectName`, optional `AzureDevOps:AreaPath`). The backlog is hard-set to a specific project. The PAT is loaded from user secrets (`AzureDevOps:Pat`). The gateway uses a default WIQL query for all User Story work items in the configured project, excluding terminal states (Closed, Removed).
 
-~~**Microsoft Agent Framework version**~~: **Resolved** — Use `Microsoft.Agents.Builder` version **1.0.0-rc4**.
+~~**Microsoft Agent Framework version**~~: **Resolved** — Use `Microsoft.Agents.AI.OpenAI` version **1.0.0-rc4** (bridges OpenAI SDK → `IChatClient`). `Microsoft.Agents.Builder` doesn't exist on NuGet in the expected form and targets M365/Teams bot routing. Agent behavior defined via system prompt + tools in `PrioritizationService` using `IChatClient` directly with `UseFunctionInvocation()` middleware. Also requires `Azure.AI.OpenAI` 2.3.0-beta.1 (not transitive).
 
 `None` — all blockers resolved.
 
@@ -152,3 +152,11 @@ Build a read-only, suggestion-only MVP console application that connects to an A
 ### Session 2026-03-27
 
 - **Filtering**: WIQL query now excludes Closed and Removed work items. Updated Slice 1 and Unresolved Blockers to reflect `[System.State] NOT IN ('Closed', 'Removed')` filter.
+
+### Session 2026-03-27 #2 — Scenario 2 Implementation
+
+- **Framework change** (CRITICAL): `Microsoft.Agents.Builder` doesn't exist on NuGet; replaced with `Microsoft.Agents.AI.OpenAI` 1.0.0-rc4 + `Azure.AI.OpenAI` 2.3.0-beta.1. Updated Dependencies, Cross-Scenario Tasks, Delivery Sequence, and Unresolved Blockers.
+- **Architecture**: No separate agent definition class. Agent behavior (system prompt, tools, conversation history) lives in `PrioritizationService` using `IChatClient` with `UseFunctionInvocation()` middleware and `AIFunctionFactory.Create()`.
+- **Test alignment**: Updated `PrioritizationServiceTests` and `ConsoleHostTests` method names in Global Test Strategy to match actual implemented tests.
+- **Slice 2 update**: Replaced "Agent Framework" references with `IChatClient`/`AIFunctionFactory`/`UseFunctionInvocation()`. Added `TextReader`/`TextWriter` testability note to `ConsoleHost`.
+- **Slice 3 update**: Replaced agent definition reference with `PrioritizationService._chatOptions.Tools` + `AIFunctionFactory` pattern.
