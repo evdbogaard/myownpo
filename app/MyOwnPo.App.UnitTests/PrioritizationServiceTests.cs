@@ -16,7 +16,8 @@ public class PrioritizationServiceTests
     {
         var chatClient = CreateChatClientMock("Here are my suggestions.");
         var backlogService = CreateBacklogServiceMock([]);
-        var sut = new PrioritizationService(chatClient.Object, backlogService.Object);
+        var contextService = CreateProjectContextServiceMock();
+        var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object);
 
         var result = await sut.Chat("suggest priorities");
 
@@ -39,7 +40,8 @@ public class PrioritizationServiceTests
         chatClient
             .Setup(mock => mock.Dispose());
         var backlogService = CreateBacklogServiceMock([]);
-        var sut = new PrioritizationService(chatClient.Object, backlogService.Object);
+        var contextService = CreateProjectContextServiceMock();
+        var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object);
 
         await sut.Chat("prioritize my backlog");
 
@@ -65,7 +67,8 @@ public class PrioritizationServiceTests
         chatClient
             .Setup(mock => mock.Dispose());
         var backlogService = CreateBacklogServiceMock([]);
-        var sut = new PrioritizationService(chatClient.Object, backlogService.Object);
+        var contextService = CreateProjectContextServiceMock();
+        var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object);
 
         await sut.Chat("hello");
 
@@ -91,7 +94,8 @@ public class PrioritizationServiceTests
         chatClient
             .Setup(mock => mock.Dispose());
         var backlogService = CreateBacklogServiceMock([]);
-        var sut = new PrioritizationService(chatClient.Object, backlogService.Object);
+        var contextService = CreateProjectContextServiceMock();
+        var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object);
 
         await sut.Chat("first message");
         await sut.Chat("second message");
@@ -106,7 +110,8 @@ public class PrioritizationServiceTests
     {
         var chatClient = CreateChatClientMock(null);
         var backlogService = CreateBacklogServiceMock([]);
-        var sut = new PrioritizationService(chatClient.Object, backlogService.Object);
+        var contextService = CreateProjectContextServiceMock();
+        var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object);
 
         var result = await sut.Chat("test");
 
@@ -129,7 +134,8 @@ public class PrioritizationServiceTests
         chatClient
             .Setup(mock => mock.Dispose());
         var backlogService = CreateBacklogServiceMock([]);
-        var sut = new PrioritizationService(chatClient.Object, backlogService.Object);
+        var contextService = CreateProjectContextServiceMock();
+        var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object);
 
         await sut.Chat("test");
 
@@ -137,6 +143,33 @@ public class PrioritizationServiceTests
         Assert.NotNull(capturedOptions.Tools);
         Assert.Contains(capturedOptions.Tools, tool =>
             tool is AIFunction function && function.Name == "GetBacklogStories");
+    }
+
+    [Fact]
+    public async Task Chat_ConfiguresChatOptionsWithGetProjectContextTool()
+    {
+        ChatOptions? capturedOptions = null;
+        var chatClient = new Mock<IChatClient>(MockBehavior.Strict);
+        chatClient
+            .Setup(mock => mock.GetResponseAsync(
+                It.IsAny<IList<ChatMessage>>(),
+                It.IsAny<ChatOptions>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<ChatMessage>, ChatOptions?, CancellationToken>((_, options, _) =>
+                capturedOptions = options)
+            .ReturnsAsync(CreateChatResponse("response"));
+        chatClient
+            .Setup(mock => mock.Dispose());
+        var backlogService = CreateBacklogServiceMock([]);
+        var contextService = CreateProjectContextServiceMock();
+        var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object);
+
+        await sut.Chat("test");
+
+        Assert.NotNull(capturedOptions);
+        Assert.NotNull(capturedOptions.Tools);
+        Assert.Contains(capturedOptions.Tools, tool =>
+            tool is AIFunction function && function.Name == "GetProjectContext");
     }
 
     private static Mock<IChatClient> CreateChatClientMock(string? responseText)
@@ -163,6 +196,14 @@ public class PrioritizationServiceTests
     {
         var mock = new Mock<IBacklogService>(MockBehavior.Strict);
         mock.Setup(service => service.GetStories()).Returns(stories);
+        return mock;
+    }
+
+    private static Mock<IProjectContextService> CreateProjectContextServiceMock(ProjectContext? context = null)
+    {
+        var mock = new Mock<IProjectContextService>(MockBehavior.Strict);
+        mock.Setup(service => service.GetContext()).Returns(context);
+        mock.Setup(service => service.HasContext).Returns(context is not null);
         return mock;
     }
 }

@@ -49,6 +49,7 @@ builder.Services.AddSingleton<IChatClient>(serviceProvider =>
 		.Build();
 });
 
+builder.Services.AddSingleton<IProjectContextService, ProjectContextService>();
 builder.Services.AddSingleton<IPrioritizationService, PrioritizationService>();
 builder.Services.AddSingleton<ConsoleHost>();
 

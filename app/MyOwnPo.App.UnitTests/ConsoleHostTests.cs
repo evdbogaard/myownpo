@@ -119,11 +119,13 @@ public class ConsoleHostTests
     private static (StringReader Input, StringWriter Output, ConsoleHost Host) CreateHost(
         IBacklogService backlogService,
         IPrioritizationService prioritizationService,
-        string inputText)
+        string inputText,
+        IProjectContextService? projectContextService = null)
     {
         var input = new StringReader(inputText);
         var output = new StringWriter();
-        var host = new ConsoleHost(backlogService, prioritizationService, input, output);
+        var contextService = projectContextService ?? new Mock<IProjectContextService>(MockBehavior.Loose).Object;
+        var host = new ConsoleHost(backlogService, prioritizationService, contextService, input, output);
         return (input, output, host);
     }
 
@@ -138,4 +140,99 @@ public class ConsoleHostTests
             Status = "New",
             Labels = ["Tag"]
         };
+
+    [Fact]
+    public async Task HandleInput_ContextSetCommand_SetsContext()
+    {
+        var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+        var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+        var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
+        contextService
+            .Setup(mock => mock.SetContext(It.IsAny<ProjectContext>()));
+        var (input, output, sut) = CreateHost(
+            backlogService.Object,
+            prioritizationService.Object,
+            "context set\nOur vision\nGrow revenue\nEnterprise teams\nPerformance\nNo budget\nexit\n",
+            contextService.Object);
+
+        await sut.Run();
+
+        contextService.Verify(mock => mock.SetContext(It.Is<ProjectContext>(ctx =>
+            ctx.Vision == "Our vision"
+            && ctx.BusinessGoals == "Grow revenue"
+            && ctx.TargetUsers == "Enterprise teams"
+            && ctx.SprintFocus == "Performance"
+            && ctx.Constraints == "No budget")), Times.Once);
+        Assert.Contains("Project context updated", output.ToString());
+    }
+
+    [Fact]
+    public async Task HandleInput_ContextShowCommand_DisplaysContext()
+    {
+        var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+        var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+        var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
+        contextService
+            .Setup(mock => mock.GetContext())
+            .Returns(new ProjectContext
+            {
+                Vision = "Best tool ever",
+                BusinessGoals = "Revenue growth",
+                TargetUsers = null,
+                SprintFocus = "Onboarding",
+                Constraints = null
+            });
+        var (input, output, sut) = CreateHost(
+            backlogService.Object,
+            prioritizationService.Object,
+            "context show\nexit\n",
+            contextService.Object);
+
+        await sut.Run();
+
+        var text = output.ToString();
+        Assert.Contains("Best tool ever", text);
+        Assert.Contains("Revenue growth", text);
+        Assert.Contains("Onboarding", text);
+    }
+
+    [Fact]
+    public async Task HandleInput_ContextShowCommand_NoContext_ShowsMessage()
+    {
+        var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+        var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+        var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
+        contextService
+            .Setup(mock => mock.GetContext())
+            .Returns((ProjectContext?)null);
+        var (input, output, sut) = CreateHost(
+            backlogService.Object,
+            prioritizationService.Object,
+            "context show\nexit\n",
+            contextService.Object);
+
+        await sut.Run();
+
+        Assert.Contains("No project context set", output.ToString());
+    }
+
+    [Fact]
+    public async Task HandleInput_ContextClearCommand_ClearsContext()
+    {
+        var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+        var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+        var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
+        contextService
+            .Setup(mock => mock.ClearContext());
+        var (input, output, sut) = CreateHost(
+            backlogService.Object,
+            prioritizationService.Object,
+            "context clear\nexit\n",
+            contextService.Object);
+
+        await sut.Run();
+
+        contextService.Verify(mock => mock.ClearContext(), Times.Once);
+        Assert.Contains("Project context cleared", output.ToString());
+    }
 }

@@ -3,15 +3,16 @@ using MyOwnPo.Services;
 
 namespace MyOwnPo;
 
-public class ConsoleHost(IBacklogService backlogService, IPrioritizationService prioritizationService, TextReader input, TextWriter output)
+public class ConsoleHost(IBacklogService backlogService, IPrioritizationService prioritizationService, IProjectContextService projectContextService, TextReader input, TextWriter output)
 {
     private readonly IBacklogService _backlogService = backlogService;
     private readonly IPrioritizationService _prioritizationService = prioritizationService;
+    private readonly IProjectContextService _projectContextService = projectContextService;
     private readonly TextReader _input = input;
     private readonly TextWriter _output = output;
 
-    public ConsoleHost(IBacklogService backlogService, IPrioritizationService prioritizationService)
-        : this(backlogService, prioritizationService, Console.In, Console.Out)
+    public ConsoleHost(IBacklogService backlogService, IPrioritizationService prioritizationService, IProjectContextService projectContextService)
+        : this(backlogService, prioritizationService, projectContextService, Console.In, Console.Out)
     {
     }
 
@@ -39,20 +40,28 @@ public class ConsoleHost(IBacklogService backlogService, IPrioritizationService 
 
             try
             {
-                switch (command.ToLowerInvariant())
+                if (command.StartsWith("context ", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(command, "context", StringComparison.OrdinalIgnoreCase))
                 {
-                    case "help":
-                        WriteHelp();
-                        break;
-                    case "connect":
-                        await HandleConnect();
-                        break;
-                    case "refresh":
-                        await HandleRefresh();
-                        break;
-                    default:
-                        await HandleChat(command);
-                        break;
+                    HandleContext(command);
+                }
+                else
+                {
+                    switch (command.ToLowerInvariant())
+                    {
+                        case "help":
+                            WriteHelp();
+                            break;
+                        case "connect":
+                            await HandleConnect();
+                            break;
+                        case "refresh":
+                            await HandleRefresh();
+                            break;
+                        default:
+                            await HandleChat(command);
+                            break;
+                    }
                 }
             }
             catch (BacklogCapExceededException ex)
@@ -114,6 +123,94 @@ public class ConsoleHost(IBacklogService backlogService, IPrioritizationService 
         _output.WriteLine(response);
     }
 
+    private void HandleContext(string command)
+    {
+        var subCommand = command.Length > "context".Length
+            ? command["context ".Length..].Trim()
+            : string.Empty;
+
+        if (string.Equals(subCommand, "set", StringComparison.OrdinalIgnoreCase))
+        {
+            HandleContextSet();
+        }
+        else if (string.Equals(subCommand, "show", StringComparison.OrdinalIgnoreCase))
+        {
+            HandleContextShow();
+        }
+        else if (string.Equals(subCommand, "clear", StringComparison.OrdinalIgnoreCase))
+        {
+            HandleContextClear();
+        }
+        else
+        {
+            _output.WriteLine("Unknown context command. Use: context set, context show, context clear.");
+        }
+    }
+
+    private void HandleContextSet()
+    {
+        _output.WriteLine("Provide project context (press Enter to skip a field):");
+
+        _output.Write("  Vision: ");
+        var vision = _input.ReadLine();
+
+        _output.Write("  Business goals: ");
+        var goals = _input.ReadLine();
+
+        _output.Write("  Target users: ");
+        var users = _input.ReadLine();
+
+        _output.Write("  Sprint focus: ");
+        var sprint = _input.ReadLine();
+
+        _output.Write("  Constraints: ");
+        var constraints = _input.ReadLine();
+
+        var context = new ProjectContext
+        {
+            Vision = NullIfEmpty(vision),
+            BusinessGoals = NullIfEmpty(goals),
+            TargetUsers = NullIfEmpty(users),
+            SprintFocus = NullIfEmpty(sprint),
+            Constraints = NullIfEmpty(constraints)
+        };
+
+        _projectContextService.SetContext(context);
+        _output.WriteLine(context.IsEmpty ? "Context cleared (all fields were empty)." : "Project context updated.");
+    }
+
+    private void HandleContextShow()
+    {
+        var context = _projectContextService.GetContext();
+        if (context is null || context.IsEmpty)
+        {
+            _output.WriteLine("No project context set. Use 'context set' to provide context.");
+            return;
+        }
+
+        _output.WriteLine("Current project context:");
+        WriteContextField("Vision", context.Vision);
+        WriteContextField("Business goals", context.BusinessGoals);
+        WriteContextField("Target users", context.TargetUsers);
+        WriteContextField("Sprint focus", context.SprintFocus);
+        WriteContextField("Constraints", context.Constraints);
+    }
+
+    private void HandleContextClear()
+    {
+        _projectContextService.ClearContext();
+        _output.WriteLine("Project context cleared.");
+    }
+
+    private void WriteContextField(string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            _output.WriteLine($"  {label}: {value}");
+    }
+
+    private static string? NullIfEmpty(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
+
     private void WriteMissingFieldWarnings(IEnumerable<UserStory> stories)
     {
         var incompleteStories = stories
@@ -147,10 +244,13 @@ public class ConsoleHost(IBacklogService backlogService, IPrioritizationService 
     private void WriteHelp()
     {
         _output.WriteLine("Commands:");
-        _output.WriteLine("- connect : connect and ingest user stories");
-        _output.WriteLine("- refresh : refresh backlog and show diff");
-        _output.WriteLine("- help    : show command help");
-        _output.WriteLine("- exit    : quit the app");
+        _output.WriteLine("- connect       : connect and ingest user stories");
+        _output.WriteLine("- refresh       : refresh backlog and show diff");
+        _output.WriteLine("- context set   : set project context (vision, goals, etc.)");
+        _output.WriteLine("- context show  : show current project context");
+        _output.WriteLine("- context clear : remove project context");
+        _output.WriteLine("- help          : show command help");
+        _output.WriteLine("- exit          : quit the app");
         _output.WriteLine();
         _output.WriteLine("Or type a question to chat with the AI Product Owner.");
     }

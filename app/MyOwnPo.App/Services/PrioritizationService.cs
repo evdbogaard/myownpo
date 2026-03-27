@@ -28,23 +28,30 @@ public class PrioritizationService : IPrioritizationService
 		- When the team member provides feedback or additional context, incorporate it and offer an updated ranking if appropriate.
 		- Keep responses clear, well-formatted, and actionable. Use numbered lists for rankings.
 		- The story existing only out of just dashes (----), this is a separator story that shows stories above it are ready to be picked up or active, below it are stories that need more information or refinement.
+		- When generating prioritization suggestions, always check for project context using the GetProjectContext tool. If context exists, reference the vision, goals, and constraints in your justifications. If no context is set, note that providing context would improve the quality of suggestions.
 		""";
 
 	private readonly IChatClient _chatClient;
 	private readonly IBacklogService _backlogService;
+	private readonly IProjectContextService _projectContextService;
 	private readonly List<ChatMessage> _history = [];
 	private readonly ChatOptions _chatOptions;
 
-	public PrioritizationService(IChatClient chatClient, IBacklogService backlogService)
+	public PrioritizationService(IChatClient chatClient, IBacklogService backlogService, IProjectContextService projectContextService)
 	{
 		_chatClient = chatClient;
 		_backlogService = backlogService;
+		_projectContextService = projectContextService;
 
 		_history.Add(new ChatMessage(ChatRole.System, SystemPrompt));
 
 		_chatOptions = new ChatOptions
 		{
-			Tools = [AIFunctionFactory.Create(GetBacklogStories, "GetBacklogStories", "Retrieves all user stories currently loaded from the backlog.")]
+			Tools =
+			[
+				AIFunctionFactory.Create(GetBacklogStories, "GetBacklogStories", "Retrieves all user stories currently loaded from the backlog."),
+				AIFunctionFactory.Create(GetProjectContext, "GetProjectContext", "Retrieves the project context (vision, goals, target users, sprint focus, constraints) if set by the team member.")
+			]
 		};
 	}
 
@@ -57,6 +64,23 @@ public class PrioritizationService : IPrioritizationService
 		_history.AddMessages(response);
 
 		return response.Text ?? string.Empty;
+	}
+
+	[Description("Retrieves the project context (vision, goals, target users, sprint focus, constraints) if set by the team member.")]
+	private string GetProjectContext()
+	{
+		var context = _projectContextService.GetContext();
+		if (context is null || context.IsEmpty)
+			return "No project context has been set. Suggest that providing context (vision, goals, target users, sprint focus, constraints) would improve prioritization quality.";
+
+		return JsonSerializer.Serialize(new
+		{
+			context.Vision,
+			context.BusinessGoals,
+			context.TargetUsers,
+			context.SprintFocus,
+			context.Constraints
+		});
 	}
 
 	[Description("Retrieves all user stories currently loaded from the backlog.")]
