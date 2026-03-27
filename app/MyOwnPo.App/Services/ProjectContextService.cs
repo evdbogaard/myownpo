@@ -29,6 +29,7 @@ public class ProjectContextService(IContextFileStore contextFileStore) : IProjec
 	public void ClearContext()
 	{
 		_context = null;
+		_contextFileStore.Delete();
 	}
 
 	public ContextLoadResult LoadFromFile()

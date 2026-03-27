@@ -104,6 +104,62 @@ public class ProjectContextServiceTests
 	}
 
 	[Fact]
+	public void ClearContext_WithFile_DeletesFile()
+	{
+		var fileStore = new Mock<IContextFileStore>(MockBehavior.Strict);
+		fileStore.Setup(mock => mock.Save(It.IsAny<ProjectContext>()));
+		fileStore.Setup(mock => mock.Delete());
+		var sut = CreateService(fileStore);
+		sut.SetContext(new ProjectContext { Vision = "Vision" });
+
+		sut.ClearContext();
+
+		fileStore.Verify(mock => mock.Delete(), Times.Once);
+	}
+
+	[Fact]
+	public void ClearContext_NoFile_DoesNotThrow()
+	{
+		var fileStore = new Mock<IContextFileStore>(MockBehavior.Strict);
+		fileStore.Setup(mock => mock.Delete());
+		var sut = CreateService(fileStore);
+
+		var exception = Record.Exception(() => sut.ClearContext());
+
+		Assert.Null(exception);
+		fileStore.Verify(mock => mock.Delete(), Times.Once);
+	}
+
+	[Fact]
+	public void SetThenClearThenRestart_LoadFromFile_ReturnsNoFile()
+	{
+		var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(tempDir);
+
+		try
+		{
+			var filePath = Path.Combine(tempDir, "context.json");
+			var fileStore = new JsonContextFileStore(filePath);
+
+			var firstSession = new ProjectContextService(fileStore);
+			firstSession.SetContext(new ProjectContext { Vision = "Persisted context" });
+			firstSession.ClearContext();
+
+			var secondSession = new ProjectContextService(fileStore);
+			var result = secondSession.LoadFromFile();
+
+			Assert.Equal(ContextLoadResult.NoFile, result);
+			Assert.False(secondSession.HasContext);
+			Assert.Null(secondSession.GetContext());
+		}
+		finally
+		{
+			if (Directory.Exists(tempDir))
+				Directory.Delete(tempDir, recursive: true);
+		}
+	}
+
+	[Fact]
 	public void LoadFromFile_FileExists_LoadsContext()
 	{
 		var fileStore = new Mock<IContextFileStore>(MockBehavior.Strict);
