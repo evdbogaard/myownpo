@@ -161,4 +161,96 @@ public class JsonContextFileStoreTests : IDisposable
         Assert.NotNull(loaded);
         Assert.Equal("Second", loaded.Vision);
     }
+
+    [Fact]
+    public void Load_ExternallyEditedFile_LoadsCorrectValues()
+    {
+        var sut = CreateStore();
+        File.WriteAllText(TempFile(), """
+            {
+              "Vision": "Deliver a delightful mobile experience",
+              "BusinessGoals": "Increase DAU by 20%",
+              "TargetUsers": "Small business owners",
+              "SprintFocus": "Onboarding flow redesign",
+              "Constraints": "Must ship by Q3"
+            }
+            """);
+
+        var result = sut.Load();
+
+        Assert.NotNull(result);
+        Assert.Equal("Deliver a delightful mobile experience", result.Vision);
+        Assert.Equal("Increase DAU by 20%", result.BusinessGoals);
+        Assert.Equal("Small business owners", result.TargetUsers);
+        Assert.Equal("Onboarding flow redesign", result.SprintFocus);
+        Assert.Equal("Must ship by Q3", result.Constraints);
+    }
+
+    [Fact]
+    public void Load_MixedCasePropertyNames_LoadsCaseInsensitive()
+    {
+        var sut = CreateStore();
+        File.WriteAllText(TempFile(), """
+            {
+              "vision": "lowercase vision",
+              "BUSINESSGOALS": "uppercase goals",
+              "targetusers": "all lowercase users",
+              "sprintFocus": "camelCase focus",
+              "CONSTRAINTS": "UPPER constraints"
+            }
+            """);
+
+        var result = sut.Load();
+
+        Assert.NotNull(result);
+        Assert.Equal("lowercase vision", result.Vision);
+        Assert.Equal("uppercase goals", result.BusinessGoals);
+        Assert.Equal("all lowercase users", result.TargetUsers);
+        Assert.Equal("camelCase focus", result.SprintFocus);
+        Assert.Equal("UPPER constraints", result.Constraints);
+    }
+
+    [Fact]
+    public void Load_ExtraProperties_IgnoresUnknownFields()
+    {
+        var sut = CreateStore();
+        File.WriteAllText(TempFile(), """
+            {
+              "Vision": "Core vision",
+              "CustomField": "this should be ignored",
+              "Notes": "also ignored",
+              "BusinessGoals": "Growth"
+            }
+            """);
+
+        var result = sut.Load();
+
+        Assert.NotNull(result);
+        Assert.Equal("Core vision", result.Vision);
+        Assert.Equal("Growth", result.BusinessGoals);
+        Assert.Null(result.TargetUsers);
+        Assert.Null(result.SprintFocus);
+        Assert.Null(result.Constraints);
+    }
+
+    [Fact]
+    public void Load_PartialFields_ReturnsPartialContext()
+    {
+        var sut = CreateStore();
+        File.WriteAllText(TempFile(), """
+            {
+              "Vision": "Partial vision",
+              "SprintFocus": "Current sprint only"
+            }
+            """);
+
+        var result = sut.Load();
+
+        Assert.NotNull(result);
+        Assert.Equal("Partial vision", result.Vision);
+        Assert.Equal("Current sprint only", result.SprintFocus);
+        Assert.Null(result.BusinessGoals);
+        Assert.Null(result.TargetUsers);
+        Assert.Null(result.Constraints);
+    }
 }
