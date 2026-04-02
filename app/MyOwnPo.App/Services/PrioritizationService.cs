@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
 
 using MyOwnPo.Models;
+using MyOwnPo.Services.Interfaces;
 
 namespace MyOwnPo.Services;
 

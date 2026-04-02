@@ -1,6 +1,6 @@
 using MyOwnPo.Models;
 
-namespace MyOwnPo.Services;
+namespace MyOwnPo.Services.Interfaces;
 
 public interface IContextFileStore
 {

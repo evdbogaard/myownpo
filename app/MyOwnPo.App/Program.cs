@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using MyOwnPo;
 using MyOwnPo.Gateways;
 using MyOwnPo.Services;
+using MyOwnPo.Services.Interfaces;
 
 var builder = Host.CreateApplicationBuilder(args);
 
