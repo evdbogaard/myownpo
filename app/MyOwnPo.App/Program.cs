@@ -51,6 +51,8 @@ builder.Services.AddSingleton<IChatClient>(serviceProvider =>
 
 builder.Services.AddSingleton<IContextFileStore>(new JsonContextFileStore("project-context.json"));
 builder.Services.AddSingleton<IProjectContextService, ProjectContextService>();
+builder.Services.AddSingleton<IRoadmapFileLoader, RoadmapMarkdownFileLoader>();
+builder.Services.AddSingleton<IRoadmapParser, RoadmapMarkdownParser>();
 builder.Services.AddSingleton<IPrioritizationService, PrioritizationService>();
 builder.Services.AddSingleton<ConsoleHost>();
 

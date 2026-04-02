@@ -52,6 +52,32 @@ public class ConsoleHostTests
 	}
 
 	[Fact]
+	public async Task HandleInput_RoadmapRequest_ForwardsToPrioritizationService()
+	{
+		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+		backlogService
+			.Setup(mock => mock.GetStories())
+			.Returns(new List<UserStory>
+			{
+				Story("1", "Story A"),
+				Story("2", "Story B")
+			});
+		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+		prioritizationService
+			.Setup(mock => mock.Chat("please analyze roadmap.md and link it to backlog"))
+			.ReturnsAsync("Linked roadmap items: ...");
+		var (input, output, sut) = CreateHost(
+			backlogService.Object,
+			prioritizationService.Object,
+			"please analyze roadmap.md and link it to backlog\nexit\n");
+
+		await sut.Run();
+
+		prioritizationService.Verify(mock => mock.Chat("please analyze roadmap.md and link it to backlog"), Times.Once);
+		Assert.Contains("Linked roadmap items", output.ToString());
+	}
+
+	[Fact]
 	public async Task HandleInput_NaturalLanguageWithNoBacklog_PromptsToConnect()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
