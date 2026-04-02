@@ -1,6 +1,6 @@
 namespace MyOwnPo.Services.Interfaces;
 
-public interface IPrioritizationService
+public interface IProductOwnerBrainService
 {
 	Task<string> Chat(string userMessage);
 }

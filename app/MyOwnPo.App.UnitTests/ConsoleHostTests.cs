@@ -2,6 +2,7 @@ using Moq;
 
 using MyOwnPo.Models;
 using MyOwnPo.Services;
+using MyOwnPo.Services.Interfaces;
 
 using Xunit;
 
@@ -19,8 +20,8 @@ public class ConsoleHostTests
 		backlogService
 			.Setup(mock => mock.GetStories())
 			.Returns(new List<UserStory> { Story("1", "Story A") });
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
-		var (input, output, sut) = CreateHost(backlogService.Object, prioritizationService.Object, "connect\nexit\n");
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
+		var (input, output, sut) = CreateHost(backlogService.Object, productOwnerBrainService.Object, "connect\nexit\n");
 
 		await sut.Run();
 
@@ -39,20 +40,20 @@ public class ConsoleHostTests
 				Story("1", "Story A"),
 				Story("2", "Story B")
 			});
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
-		prioritizationService
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
+		productOwnerBrainService
 			.Setup(mock => mock.Chat("suggest priorities"))
 			.ReturnsAsync("1. Story A\n2. Story B");
-		var (input, output, sut) = CreateHost(backlogService.Object, prioritizationService.Object, "suggest priorities\nexit\n");
+		var (input, output, sut) = CreateHost(backlogService.Object, productOwnerBrainService.Object, "suggest priorities\nexit\n");
 
 		await sut.Run();
 
-		prioritizationService.Verify(mock => mock.Chat("suggest priorities"), Times.Once);
+		productOwnerBrainService.Verify(mock => mock.Chat("suggest priorities"), Times.Once);
 		Assert.Contains("1. Story A", output.ToString());
 	}
 
 	[Fact]
-	public async Task HandleInput_RoadmapRequest_ForwardsToPrioritizationService()
+	public async Task HandleInput_RoadmapRequest_ForwardsToProductOwnerBrainService()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
 		backlogService
@@ -62,44 +63,43 @@ public class ConsoleHostTests
 				Story("1", "Story A"),
 				Story("2", "Story B")
 			});
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
-		prioritizationService
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
+		productOwnerBrainService
 			.Setup(mock => mock.Chat("please analyze roadmap.md and link it to backlog"))
 			.ReturnsAsync("Linked roadmap items: ...");
 		var (input, output, sut) = CreateHost(
 			backlogService.Object,
-			prioritizationService.Object,
+			productOwnerBrainService.Object,
 			"please analyze roadmap.md and link it to backlog\nexit\n");
 
 		await sut.Run();
 
-		prioritizationService.Verify(mock => mock.Chat("please analyze roadmap.md and link it to backlog"), Times.Once);
+		productOwnerBrainService.Verify(mock => mock.Chat("please analyze roadmap.md and link it to backlog"), Times.Once);
 		Assert.Contains("Linked roadmap items", output.ToString());
 	}
 
 	[Fact]
-	public async Task HandleInput_NaturalLanguageWithNoBacklog_PromptsToConnect()
+	public async Task HandleInput_NaturalLanguageWithNoBacklog_ForwardsToProductOwnerBrain()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		backlogService
-			.Setup(mock => mock.GetStories())
-			.Returns(new List<UserStory>());
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
-		var (input, output, sut) = CreateHost(backlogService.Object, prioritizationService.Object, "suggest priorities\nexit\n");
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
+		productOwnerBrainService
+			.Setup(mock => mock.Chat("suggest priorities"))
+			.ReturnsAsync("No stories loaded.");
+		var (input, output, sut) = CreateHost(backlogService.Object, productOwnerBrainService.Object, "suggest priorities\nexit\n");
 
 		await sut.Run();
 
-		prioritizationService.Verify(mock => mock.Chat(It.IsAny<string>()), Times.Never);
-		Assert.Contains("No backlog loaded", output.ToString());
-		Assert.Contains("connect", output.ToString());
+		productOwnerBrainService.Verify(mock => mock.Chat("suggest priorities"), Times.Once);
+		Assert.Contains("No stories loaded", output.ToString());
 	}
 
 	[Fact]
 	public async Task HandleInput_ExitCommand_Exits()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
-		var (input, output, sut) = CreateHost(backlogService.Object, prioritizationService.Object, "exit\n");
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
+		var (input, output, sut) = CreateHost(backlogService.Object, productOwnerBrainService.Object, "exit\n");
 
 		await sut.Run();
 
@@ -110,8 +110,8 @@ public class ConsoleHostTests
 	public async Task HandleInput_HelpCommand_ShowsHelp()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
-		var (input, output, sut) = CreateHost(backlogService.Object, prioritizationService.Object, "help\nexit\n");
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
+		var (input, output, sut) = CreateHost(backlogService.Object, productOwnerBrainService.Object, "help\nexit\n");
 
 		await sut.Run();
 
@@ -133,8 +133,8 @@ public class ConsoleHostTests
 				Removed = [],
 				Changed = []
 			});
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
-		var (input, output, sut) = CreateHost(backlogService.Object, prioritizationService.Object, "refresh\nexit\n");
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
+		var (input, output, sut) = CreateHost(backlogService.Object, productOwnerBrainService.Object, "refresh\nexit\n");
 
 		await sut.Run();
 
@@ -144,7 +144,7 @@ public class ConsoleHostTests
 
 	private static (StringReader Input, StringWriter Output, ConsoleHost Host) CreateHost(
 		IBacklogService backlogService,
-		IPrioritizationService prioritizationService,
+		IProductOwnerBrainService productOwnerBrainService,
 		string inputText,
 		IProjectContextService? projectContextService = null)
 	{
@@ -156,7 +156,7 @@ public class ConsoleHostTests
 			mock.Setup(m => m.LoadFromFile()).Returns(ContextLoadResult.NoFile);
 			projectContextService = mock.Object;
 		}
-		var host = new ConsoleHost(backlogService, prioritizationService, projectContextService, input, output);
+		var host = new ConsoleHost(backlogService, productOwnerBrainService, projectContextService, input, output);
 		return (input, output, host);
 	}
 
@@ -176,7 +176,7 @@ public class ConsoleHostTests
 	public async Task HandleInput_ContextSetCommand_SetsContext()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
 		var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
 		contextService
 			.Setup(mock => mock.LoadFromFile())
@@ -185,7 +185,7 @@ public class ConsoleHostTests
 			.Setup(mock => mock.SetContext(It.IsAny<ProjectContext>()));
 		var (input, output, sut) = CreateHost(
 			backlogService.Object,
-			prioritizationService.Object,
+			productOwnerBrainService.Object,
 			"context set\nOur vision\nGrow revenue\nEnterprise teams\nPerformance\nNo budget\nexit\n",
 			contextService.Object);
 
@@ -204,7 +204,7 @@ public class ConsoleHostTests
 	public async Task HandleInput_ContextShowCommand_DisplaysContext()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
 		var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
 		contextService
 			.Setup(mock => mock.LoadFromFile())
@@ -221,7 +221,7 @@ public class ConsoleHostTests
 			});
 		var (input, output, sut) = CreateHost(
 			backlogService.Object,
-			prioritizationService.Object,
+			productOwnerBrainService.Object,
 			"context show\nexit\n",
 			contextService.Object);
 
@@ -237,7 +237,7 @@ public class ConsoleHostTests
 	public async Task HandleInput_ContextShowCommand_NoContext_ShowsMessage()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
 		var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
 		contextService
 			.Setup(mock => mock.LoadFromFile())
@@ -247,7 +247,7 @@ public class ConsoleHostTests
 			.Returns((ProjectContext?)null);
 		var (input, output, sut) = CreateHost(
 			backlogService.Object,
-			prioritizationService.Object,
+			productOwnerBrainService.Object,
 			"context show\nexit\n",
 			contextService.Object);
 
@@ -260,7 +260,7 @@ public class ConsoleHostTests
 	public async Task HandleInput_ContextClearCommand_ClearsContext()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
 		var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
 		contextService
 			.Setup(mock => mock.LoadFromFile())
@@ -269,7 +269,7 @@ public class ConsoleHostTests
 			.Setup(mock => mock.ClearContext());
 		var (input, output, sut) = CreateHost(
 			backlogService.Object,
-			prioritizationService.Object,
+			productOwnerBrainService.Object,
 			"context clear\nexit\n",
 			contextService.Object);
 
@@ -283,7 +283,7 @@ public class ConsoleHostTests
 	public async Task Run_ContextFileExists_DisplaysLoadedMessage()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
 		var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
 		contextService
 			.Setup(mock => mock.LoadFromFile())
@@ -300,7 +300,7 @@ public class ConsoleHostTests
 			});
 		var (input, output, sut) = CreateHost(
 			backlogService.Object,
-			prioritizationService.Object,
+			productOwnerBrainService.Object,
 			"exit\n",
 			contextService.Object);
 
@@ -319,10 +319,10 @@ public class ConsoleHostTests
 	public async Task Run_NoContextFile_NoLoadMessage()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
 		var (input, output, sut) = CreateHost(
 			backlogService.Object,
-			prioritizationService.Object,
+			productOwnerBrainService.Object,
 			"exit\n");
 
 		await sut.Run();
@@ -336,14 +336,14 @@ public class ConsoleHostTests
 	public async Task Run_MalformedContextFile_DisplaysWarning()
 	{
 		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
-		var prioritizationService = new Mock<IPrioritizationService>(MockBehavior.Strict);
+		var productOwnerBrainService = new Mock<IProductOwnerBrainService>(MockBehavior.Strict);
 		var contextService = new Mock<IProjectContextService>(MockBehavior.Strict);
 		contextService
 			.Setup(mock => mock.LoadFromFile())
 			.Returns(ContextLoadResult.Malformed);
 		var (input, output, sut) = CreateHost(
 			backlogService.Object,
-			prioritizationService.Object,
+			productOwnerBrainService.Object,
 			"exit\n",
 			contextService.Object);
 

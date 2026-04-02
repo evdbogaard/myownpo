@@ -4,16 +4,16 @@ using MyOwnPo.Services.Interfaces;
 
 namespace MyOwnPo;
 
-public class ConsoleHost(IBacklogService backlogService, IPrioritizationService prioritizationService, IProjectContextService projectContextService, TextReader input, TextWriter output)
+public class ConsoleHost(IBacklogService backlogService, IProductOwnerBrainService productOwnerBrainService, IProjectContextService projectContextService, TextReader input, TextWriter output)
 {
 	private readonly IBacklogService _backlogService = backlogService;
-	private readonly IPrioritizationService _prioritizationService = prioritizationService;
+	private readonly IProductOwnerBrainService _productOwnerBrainService = productOwnerBrainService;
 	private readonly IProjectContextService _projectContextService = projectContextService;
 	private readonly TextReader _input = input;
 	private readonly TextWriter _output = output;
 
-	public ConsoleHost(IBacklogService backlogService, IPrioritizationService prioritizationService, IProjectContextService projectContextService)
-		: this(backlogService, prioritizationService, projectContextService, Console.In, Console.Out)
+	public ConsoleHost(IBacklogService backlogService, IProductOwnerBrainService productOwnerBrainService, IProjectContextService projectContextService)
+		: this(backlogService, productOwnerBrainService, projectContextService, Console.In, Console.Out)
 	{
 	}
 
@@ -131,13 +131,7 @@ public class ConsoleHost(IBacklogService backlogService, IPrioritizationService 
 
 	private async Task HandleChat(string userMessage)
 	{
-		if (_backlogService.GetStories().Count == 0)
-		{
-			_output.WriteLine("No backlog loaded. Use 'connect' to load stories first.");
-			return;
-		}
-
-		var response = await _prioritizationService.Chat(userMessage);
+		var response = await _productOwnerBrainService.Chat(userMessage);
 		_output.WriteLine(response);
 	}
 
@@ -263,5 +257,6 @@ public class ConsoleHost(IBacklogService backlogService, IPrioritizationService 
 		_output.WriteLine("- exit          : quit the app");
 		_output.WriteLine();
 		_output.WriteLine("Or type a question to chat with the AI Product Owner.");
+		_output.WriteLine("Backlog-related questions can trigger one automatic backlog load attempt in the Product Owner brain.");
 	}
 }

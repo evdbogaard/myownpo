@@ -9,29 +9,26 @@ using MyOwnPo.Services.Interfaces;
 
 namespace MyOwnPo.Services;
 
-public class PrioritizationService : IPrioritizationService
+public class ProductOwnerBrainService : IProductOwnerBrainService
 {
 	private const int MaxHistoryMessages = 20;
 	private const string DefaultRoadmapPath = "roadmap.md";
 
 	private static readonly string SystemPrompt = """
-		You are the AI Product Owner — an expert in agile product management, user story prioritization, and backlog grooming.
+		You are the Product Owner brain for this console app, an expert in agile product management, user story prioritization, and backlog grooming..
 
 		## Role
-		You help the team by analyzing their backlog and suggesting a priority order for their user stories. You consider business value, dependencies, story completeness, and any context the team member shares.
+		- Accept free-text product questions and infer intent.
+		- Use tools when data is needed; do not guess when a tool can provide facts.
+		- Keep answers practical, concise, and actionable for product management.
 
 		## Rules
-		- You operate in **suggestion-only mode**. You NEVER modify, create, or delete stories in the backlog. If asked to change the backlog, politely decline and offer a suggestion instead.
-		- When the team member asks for prioritization suggestions, call the GetBacklogStories tool to retrieve the current backlog, then rank ALL stories from highest to lowest priority.
-		- For each story in your ranking, provide a clear justification explaining why it belongs at that position.
-		- If the backlog has fewer than 2 stories, explain that meaningful prioritization requires at least 2 stories.
-		- If the backlog is empty, tell the team member to connect to a backlog first using the 'connect' command.
-		- When you detect stories with very similar titles or descriptions, flag them as potential duplicates in your response.
-		- When the team member asks follow-up questions (e.g., "why is story X above story Y?"), explain your reasoning using the context from the conversation.
-		- When the team member provides feedback or additional context, incorporate it and offer an updated ranking if appropriate.
-		- Keep responses clear, well-formatted, and actionable. Use numbered lists for rankings.
-		- The story existing only out of just dashes (----), this is a separator story that shows stories above it are ready to be picked up or active, below it are stories that need more information or refinement.
-		- When generating prioritization suggestions, always check for project context using the GetProjectContext tool. If context exists, reference the vision, goals, and constraints in your justifications. If no context is set, note that providing context would improve the quality of suggestions.
+		- You operate in suggestion-only mode. Never claim to have changed the backlog.
+		- For backlog questions, call GetBacklogStories to retrieve the latest available backlog data.
+		- For questions about a specific story, call GetBacklogStoryById and use its details.
+		- For prioritization suggestions, rank stories from highest to lowest and explain each rank.
+		- If backlog data is missing, explain what command the user should run next.
+		- Check project context with GetProjectContext whenever it can improve quality.
 		- When the user asks for roadmap analysis, first call LoadRoadmap with the default path unless they provide a specific path.
 		- For roadmap analysis, call EvaluateRoadmapStoryLinks after loading the roadmap and present results in two sections: linked roadmap items and unlinked roadmap items.
 		- Roadmap linking only considers stories with Status set to New.
@@ -46,9 +43,10 @@ public class PrioritizationService : IPrioritizationService
 	private readonly IRoadmapParser _roadmapParser;
 	private readonly List<ChatMessage> _history = [];
 	private readonly ChatOptions _chatOptions;
+	private bool _hasAttemptedBacklogBootstrap;
 	private LoadedRoadmapState? _loadedRoadmap;
 
-	public PrioritizationService(
+	public ProductOwnerBrainService(
 		IChatClient chatClient,
 		IBacklogService backlogService,
 		IProjectContextService projectContextService,
@@ -67,7 +65,8 @@ public class PrioritizationService : IPrioritizationService
 		{
 			Tools =
 			[
-				AIFunctionFactory.Create(GetBacklogStories, "GetBacklogStories", "Retrieves all user stories currently loaded from the backlog."),
+				AIFunctionFactory.Create(GetBacklogStories, "GetBacklogStories", "Retrieves backlog stories from memory. If empty, tries one automatic load attempt for this session."),
+				AIFunctionFactory.Create(GetBacklogStoryById, "GetBacklogStoryById", "Retrieves one backlog story by id. If backlog is empty, tries one automatic load attempt for this session."),
 				AIFunctionFactory.Create(GetProjectContext, "GetProjectContext", "Retrieves the project context (vision, goals, target users, sprint focus, constraints) if set by the team member."),
 				AIFunctionFactory.Create(LoadRoadmap, "LoadRoadmap", "Loads roadmap markdown items from disk. Uses roadmap.md when no file path is provided."),
 				AIFunctionFactory.Create(EvaluateRoadmapStoryLinks, "EvaluateRoadmapStoryLinks", "Evaluates links between loaded roadmap items and New-state backlog stories, including rationale and confidence.")
@@ -103,21 +102,93 @@ public class PrioritizationService : IPrioritizationService
 		});
 	}
 
-	[Description("Retrieves all user stories currently loaded from the backlog.")]
-	private string GetBacklogStories()
+	[Description("Retrieves backlog stories from memory. If empty, tries one automatic load attempt for this session.")]
+	private async Task<string> GetBacklogStories()
+	{
+		var stories = await EnsureBacklogStories();
+
+		return JsonSerializer.Serialize(new
+		{
+			Count = stories.Count,
+			Stories = stories.Select(story => new
+			{
+				story.Id,
+				story.Title,
+				story.Description,
+				story.AcceptanceCriteria,
+				story.Priority,
+				story.Labels,
+				story.Status,
+				story.MissingFields
+			}),
+			Message = stories.Count == 0
+				? "No backlog stories available. Run connect to load stories manually."
+				: null
+		});
+	}
+
+	[Description("Retrieves one backlog story by id. If backlog is empty, tries one automatic load attempt for this session.")]
+	private async Task<string> GetBacklogStoryById(string storyId)
+	{
+		var normalizedStoryId = storyId?.Trim();
+		if (string.IsNullOrWhiteSpace(normalizedStoryId))
+		{
+			return JsonSerializer.Serialize(new
+			{
+				Status = "invalid-request",
+				Message = "Story id is required."
+			});
+		}
+
+		var stories = await EnsureBacklogStories();
+		var story = stories.FirstOrDefault(candidate =>
+			string.Equals(candidate.Id, normalizedStoryId, StringComparison.OrdinalIgnoreCase));
+
+		if (story is null)
+		{
+			return JsonSerializer.Serialize(new
+			{
+				Status = "not-found",
+				StoryId = normalizedStoryId,
+				Message = "Story not found in the loaded backlog."
+			});
+		}
+
+		return JsonSerializer.Serialize(new
+		{
+			Status = "ok",
+			Story = new
+			{
+				story.Id,
+				story.Title,
+				story.Description,
+				story.AcceptanceCriteria,
+				story.Priority,
+				story.Labels,
+				story.Status,
+				story.MissingFields
+			}
+		});
+	}
+
+	private async Task<IReadOnlyList<UserStory>> EnsureBacklogStories()
 	{
 		var stories = _backlogService.GetStories();
-		return JsonSerializer.Serialize(stories.Select(story => new
+		if (stories.Count > 0)
+			return stories;
+
+		if (_hasAttemptedBacklogBootstrap)
+			return stories;
+
+		_hasAttemptedBacklogBootstrap = true;
+		try
 		{
-			story.Id,
-			story.Title,
-			story.Description,
-			story.AcceptanceCriteria,
-			story.Priority,
-			story.Labels,
-			story.Status,
-			story.MissingFields
-		}));
+			return await _backlogService.Connect();
+		}
+		catch
+		{
+			return _backlogService.GetStories();
+		}
 	}
 
 	[Description("Loads roadmap markdown items from disk. Uses roadmap.md when no file path is provided.")]
@@ -221,7 +292,7 @@ public class PrioritizationService : IPrioritizationService
 
 			availableStories.Remove(candidate.Story.Id);
 
-			var explanation = await GenerateBusinessRationaleAsync(roadmapItem, candidate.Story, candidate.Score);
+			var explanation = await GenerateBusinessRationale(roadmapItem, candidate.Story, candidate.Score);
 			linked.Add(new RoadmapStoryLinkRecommendation
 			{
 				RoadmapItemId = roadmapItem.Id,
@@ -241,7 +312,7 @@ public class PrioritizationService : IPrioritizationService
 		return JsonSerializer.Serialize(result);
 	}
 
-	private async Task<LinkExplanation> GenerateBusinessRationaleAsync(RoadmapItem roadmapItem, UserStory story, int score)
+	private async Task<LinkExplanation> GenerateBusinessRationale(RoadmapItem roadmapItem, UserStory story, int score)
 	{
 		var prompt = $$"""
 			Write a concise business rationale for linking the roadmap item to the backlog story.

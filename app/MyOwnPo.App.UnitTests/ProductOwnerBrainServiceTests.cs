@@ -7,12 +7,13 @@ using Moq;
 
 using MyOwnPo.Models;
 using MyOwnPo.Services;
+using MyOwnPo.Services.Interfaces;
 
 using Xunit;
 
 namespace MyOwnPo.UnitTests;
 
-public class PrioritizationServiceTests
+public class ProductOwnerBrainServiceTests
 {
 	[Fact]
 	public async Task Chat_GeneralMessage_ReturnsAgentResponse()
@@ -22,7 +23,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		var result = await sut.Chat("suggest priorities");
 
@@ -48,7 +49,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		await sut.Chat("prioritize my backlog");
 
@@ -77,14 +78,14 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		await sut.Chat("hello");
 
 		Assert.NotNull(capturedMessages);
 		var messages = capturedMessages.ToList();
 		Assert.Equal(ChatRole.System, messages[0].Role);
-		Assert.Contains("AI Product Owner", messages[0].Text);
+		Assert.Contains("Product Owner brain", messages[0].Text);
 	}
 
 	[Fact]
@@ -106,7 +107,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		await sut.Chat("first message");
 		await sut.Chat("second message");
@@ -123,7 +124,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		var result = await sut.Chat("test");
 
@@ -149,7 +150,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		await sut.Chat("test");
 
@@ -158,9 +159,88 @@ public class PrioritizationServiceTests
 		Assert.Contains(capturedOptions.Tools, tool =>
 			tool is AIFunction function && function.Name == "GetBacklogStories");
 		Assert.Contains(capturedOptions.Tools, tool =>
+			tool is AIFunction function && function.Name == "GetBacklogStoryById");
+		Assert.Contains(capturedOptions.Tools, tool =>
 			tool is AIFunction function && function.Name == "LoadRoadmap");
 		Assert.Contains(capturedOptions.Tools, tool =>
 			tool is AIFunction function && function.Name == "EvaluateRoadmapStoryLinks");
+	}
+
+	[Fact]
+	public async Task GetBacklogStories_WhenBacklogEmpty_AttemptsBootstrapOnlyOnce()
+	{
+		var stories = new List<UserStory>();
+		var chatClient = CreateChatClientMock("response");
+		var backlogService = new Mock<IBacklogService>(MockBehavior.Strict);
+		backlogService.Setup(service => service.GetStories()).Returns(() => stories);
+		backlogService
+			.Setup(service => service.Connect())
+			.ThrowsAsync(new InvalidOperationException("connection failed"));
+		var contextService = CreateProjectContextServiceMock();
+		var roadmapLoader = CreateRoadmapFileLoaderMock();
+		var roadmapParser = CreateRoadmapParserMock();
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+
+		var first = await InvokeGetBacklogStories(sut);
+		var second = await InvokeGetBacklogStories(sut);
+
+		backlogService.Verify(service => service.Connect(), Times.Once);
+		Assert.Contains("No backlog stories available", first);
+		Assert.Contains("No backlog stories available", second);
+	}
+
+	[Fact]
+	public async Task GetBacklogStoryById_ReturnsMatchingStory()
+	{
+		var stories = new List<UserStory>
+		{
+			Story("42", "Improve onboarding", "Optimize signup")
+		};
+		var chatClient = CreateChatClientMock("response");
+		var backlogService = CreateBacklogServiceMock(stories);
+		var contextService = CreateProjectContextServiceMock();
+		var roadmapLoader = CreateRoadmapFileLoaderMock();
+		var roadmapParser = CreateRoadmapParserMock();
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+
+		var json = await InvokeGetBacklogStoryById(sut, "42");
+
+		using var document = JsonDocument.Parse(json);
+		Assert.Equal("ok", document.RootElement.GetProperty("Status").GetString());
+		Assert.Equal("42", document.RootElement.GetProperty("Story").GetProperty("Id").GetString());
+	}
+
+	[Fact]
+	public async Task GetBacklogStoryById_EmptyId_ReturnsInvalidRequest()
+	{
+		var chatClient = CreateChatClientMock("response");
+		var backlogService = CreateBacklogServiceMock([]);
+		var contextService = CreateProjectContextServiceMock();
+		var roadmapLoader = CreateRoadmapFileLoaderMock();
+		var roadmapParser = CreateRoadmapParserMock();
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+
+		var json = await InvokeGetBacklogStoryById(sut, " ");
+
+		using var document = JsonDocument.Parse(json);
+		Assert.Equal("invalid-request", document.RootElement.GetProperty("Status").GetString());
+	}
+
+	[Fact]
+	public async Task GetBacklogStoryById_MissingStory_ReturnsNotFound()
+	{
+		var chatClient = CreateChatClientMock("response");
+		var backlogService = CreateBacklogServiceMock([]);
+		var contextService = CreateProjectContextServiceMock();
+		var roadmapLoader = CreateRoadmapFileLoaderMock();
+		var roadmapParser = CreateRoadmapParserMock();
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+
+		var json = await InvokeGetBacklogStoryById(sut, "999");
+
+		using var document = JsonDocument.Parse(json);
+		Assert.Equal("not-found", document.RootElement.GetProperty("Status").GetString());
+		Assert.Equal("999", document.RootElement.GetProperty("StoryId").GetString());
 	}
 
 	[Fact]
@@ -182,7 +262,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		await sut.Chat("test");
 
@@ -210,7 +290,7 @@ public class PrioritizationServiceTests
 		roadmapLoader.Setup(loader => loader.Load("custom-roadmap.md")).Returns("# Improve onboarding");
 		var roadmapParser = new Mock<IRoadmapParser>(MockBehavior.Strict);
 		roadmapParser.Setup(parser => parser.Parse(It.IsAny<string>())).Returns(roadmapItems);
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		var loadResult = InvokeLoadRoadmap(sut, "custom-roadmap.md");
 		var analysisJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -235,7 +315,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock("# Launch billing portal");
 		var roadmapParser = CreateRoadmapParserMock(roadmapItems);
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		InvokeLoadRoadmap(sut);
 		var analysisJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -263,7 +343,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock("# Improve onboarding\n# Onboarding analytics");
 		var roadmapParser = CreateRoadmapParserMock(roadmapItems);
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		InvokeLoadRoadmap(sut);
 		var analysisJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -290,7 +370,7 @@ public class PrioritizationServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock("# Improve onboarding");
 		var roadmapParser = CreateRoadmapParserMock(roadmapItems);
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		InvokeLoadRoadmap(sut);
 		var analysisJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -320,7 +400,7 @@ public class PrioritizationServiceTests
 		roadmapLoader.Setup(loader => loader.Load(It.IsAny<string>())).Returns("# Improve onboarding");
 		var roadmapParser = new Mock<IRoadmapParser>(MockBehavior.Strict);
 		roadmapParser.Setup(parser => parser.Parse(It.IsAny<string>())).Returns(roadmapItems);
-		var sut = new PrioritizationService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
 
 		InvokeLoadRoadmap(sut);
 		var firstRunJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -358,6 +438,7 @@ public class PrioritizationServiceTests
 	{
 		var mock = new Mock<IBacklogService>(MockBehavior.Strict);
 		mock.Setup(service => service.GetStories()).Returns(stories);
+		mock.Setup(service => service.Connect()).ReturnsAsync(stories);
 		return mock;
 	}
 
@@ -395,21 +476,41 @@ public class PrioritizationServiceTests
 			Labels = ["Tag"]
 		};
 
-	private static string InvokeLoadRoadmap(PrioritizationService sut, string? filePath = null)
+	private static string InvokeLoadRoadmap(ProductOwnerBrainService sut, string? filePath = null)
 	{
-		var method = typeof(PrioritizationService)
+		var method = typeof(ProductOwnerBrainService)
 			.GetMethod("LoadRoadmap", BindingFlags.Instance | BindingFlags.NonPublic);
 		Assert.NotNull(method);
 		var value = method.Invoke(sut, [filePath]);
 		return Assert.IsType<string>(value);
 	}
 
-	private static async Task<string> InvokeEvaluateRoadmapStoryLinks(PrioritizationService sut)
+	private static async Task<string> InvokeEvaluateRoadmapStoryLinks(ProductOwnerBrainService sut)
 	{
-		var method = typeof(PrioritizationService)
+		var method = typeof(ProductOwnerBrainService)
 			.GetMethod("EvaluateRoadmapStoryLinks", BindingFlags.Instance | BindingFlags.NonPublic);
 		Assert.NotNull(method);
 		var task = method.Invoke(sut, null);
+		var typedTask = Assert.IsType<Task<string>>(task);
+		return await typedTask;
+	}
+
+	private static async Task<string> InvokeGetBacklogStories(ProductOwnerBrainService sut)
+	{
+		var method = typeof(ProductOwnerBrainService)
+			.GetMethod("GetBacklogStories", BindingFlags.Instance | BindingFlags.NonPublic);
+		Assert.NotNull(method);
+		var task = method.Invoke(sut, null);
+		var typedTask = Assert.IsType<Task<string>>(task);
+		return await typedTask;
+	}
+
+	private static async Task<string> InvokeGetBacklogStoryById(ProductOwnerBrainService sut, string storyId)
+	{
+		var method = typeof(ProductOwnerBrainService)
+			.GetMethod("GetBacklogStoryById", BindingFlags.Instance | BindingFlags.NonPublic);
+		Assert.NotNull(method);
+		var task = method.Invoke(sut, [storyId]);
 		var typedTask = Assert.IsType<Task<string>>(task);
 		return await typedTask;
 	}

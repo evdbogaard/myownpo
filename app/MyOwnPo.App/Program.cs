@@ -54,7 +54,7 @@ builder.Services.AddSingleton<IContextFileStore>(new JsonContextFileStore("proje
 builder.Services.AddSingleton<IProjectContextService, ProjectContextService>();
 builder.Services.AddSingleton<IRoadmapFileLoader, RoadmapMarkdownFileLoader>();
 builder.Services.AddSingleton<IRoadmapParser, RoadmapMarkdownParser>();
-builder.Services.AddSingleton<IPrioritizationService, PrioritizationService>();
+builder.Services.AddSingleton<IProductOwnerBrainService, ProductOwnerBrainService>();
 builder.Services.AddSingleton<ConsoleHost>();
 
 using var host = builder.Build();
