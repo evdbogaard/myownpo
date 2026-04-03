@@ -2,8 +2,11 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
+using MyOwnPo.App.Agents;
 using MyOwnPo.Models;
 using MyOwnPo.Services.Interfaces;
 
@@ -24,8 +27,6 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 
 		## Rules
 		- You operate in suggestion-only mode. Never claim to have changed the backlog.
-		- For backlog questions, call GetBacklogStories to retrieve the latest available backlog data.
-		- For questions about a specific story, call GetBacklogStoryById and use its details.
 		- For prioritization suggestions, rank stories from highest to lowest and explain each rank.
 		- If backlog data is missing, explain what command the user should run next.
 		- Check project context with GetProjectContext whenever it can improve quality.
@@ -41,6 +42,7 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 	private readonly IProjectContextService _projectContextService;
 	private readonly IRoadmapFileLoader _roadmapFileLoader;
 	private readonly IRoadmapParser _roadmapParser;
+	private readonly AIAgent _agent;
 	private readonly List<ChatMessage> _history = [];
 	private readonly ChatOptions _chatOptions;
 	private bool _hasAttemptedBacklogBootstrap;
@@ -51,22 +53,23 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 		IBacklogService backlogService,
 		IProjectContextService projectContextService,
 		IRoadmapFileLoader roadmapFileLoader,
-		IRoadmapParser roadmapParser)
+		IRoadmapParser roadmapParser,
+		[FromKeyedServices(POAgentHelper.AgentName)] AIAgent agent)
 	{
 		_chatClient = chatClient;
 		_backlogService = backlogService;
 		_projectContextService = projectContextService;
 		_roadmapFileLoader = roadmapFileLoader;
 		_roadmapParser = roadmapParser;
-
+		_agent = agent;
 		_history.Add(new ChatMessage(ChatRole.System, SystemPrompt));
 
 		_chatOptions = new ChatOptions
 		{
 			Tools =
 			[
-				AIFunctionFactory.Create(GetBacklogStories, "GetBacklogStories", "Retrieves backlog stories from memory. If empty, tries one automatic load attempt for this session."),
-				AIFunctionFactory.Create(GetBacklogStoryById, "GetBacklogStoryById", "Retrieves one backlog story by id. If backlog is empty, tries one automatic load attempt for this session."),
+				AIFunctionFactory.Create(GetBacklogStories),
+				AIFunctionFactory.Create(GetBacklogStoryById),
 				AIFunctionFactory.Create(GetProjectContext, "GetProjectContext", "Retrieves the project context (vision, goals, target users, sprint focus, constraints) if set by the team member."),
 				AIFunctionFactory.Create(LoadRoadmap, "LoadRoadmap", "Loads roadmap markdown items from disk. Uses roadmap.md when no file path is provided."),
 				AIFunctionFactory.Create(EvaluateRoadmapStoryLinks, "EvaluateRoadmapStoryLinks", "Evaluates links between loaded roadmap items and New-state backlog stories, including rationale and confidence.")
@@ -78,6 +81,9 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 	{
 		_history.Add(new ChatMessage(ChatRole.User, userMessage));
 		TrimHistory();
+
+		var agentResponse = await _agent.RunAsync(_history);
+		var test = agentResponse.AsChatResponse();
 
 		var response = await _chatClient.GetResponseAsync(_history, _chatOptions);
 		_history.AddMessages(response);
