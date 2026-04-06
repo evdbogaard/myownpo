@@ -2,7 +2,6 @@
 
 using Azure.AI.OpenAI;
 
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,8 +14,6 @@ using MyOwnPo.App.Tools;
 using MyOwnPo.Gateways;
 using MyOwnPo.Services;
 using MyOwnPo.Services.Interfaces;
-
-using OpenAI.Chat;
 
 var builder = Host.CreateApplicationBuilder(args);
 
