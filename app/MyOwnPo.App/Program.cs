@@ -2,16 +2,20 @@
 
 using Azure.AI.OpenAI;
 
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using MyOwnPo;
 using MyOwnPo.App.Agents;
 using MyOwnPo.App.Tools;
 using MyOwnPo.Gateways;
+using MyOwnPo.Repositories;
+using MyOwnPo.Repositories.Interfaces;
 using MyOwnPo.Services;
 using MyOwnPo.Services.Interfaces;
 
@@ -61,6 +65,8 @@ builder.Services.AddSingleton<IChatClient>(serviceProvider =>
 builder.Services.AddSingleton<BacklogTools>();
 
 builder.Services.AddSingleton<IContextFileStore>(new JsonContextFileStore("project-context.json"));
+builder.Services.AddSingleton<IFileRepository, FileRepository>();
+builder.Services.AddSingleton<ISessionHistoryService, SessionHistoryService>();
 builder.Services.AddSingleton<IProjectContextService, ProjectContextService>();
 builder.Services.AddSingleton<IRoadmapFileLoader, RoadmapMarkdownFileLoader>();
 builder.Services.AddSingleton<IRoadmapParser, RoadmapMarkdownParser>();

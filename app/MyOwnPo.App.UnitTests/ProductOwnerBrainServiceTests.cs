@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 using Moq;
@@ -23,7 +24,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		var result = await sut.Chat("suggest priorities");
 
@@ -49,7 +50,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		await sut.Chat("prioritize my backlog");
 
@@ -78,7 +79,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		await sut.Chat("hello");
 
@@ -107,7 +108,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		await sut.Chat("first message");
 		await sut.Chat("second message");
@@ -124,7 +125,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		var result = await sut.Chat("test");
 
@@ -150,7 +151,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		await sut.Chat("test");
 
@@ -179,7 +180,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		var first = await InvokeGetBacklogStories(sut);
 		var second = await InvokeGetBacklogStories(sut);
@@ -201,7 +202,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		var json = await InvokeGetBacklogStoryById(sut, "42");
 
@@ -218,7 +219,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		var json = await InvokeGetBacklogStoryById(sut, " ");
 
@@ -234,7 +235,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		var json = await InvokeGetBacklogStoryById(sut, "999");
 
@@ -262,7 +263,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock();
 		var roadmapParser = CreateRoadmapParserMock();
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		await sut.Chat("test");
 
@@ -290,7 +291,7 @@ public class ProductOwnerBrainServiceTests
 		roadmapLoader.Setup(loader => loader.Load("custom-roadmap.md")).Returns("# Improve onboarding");
 		var roadmapParser = new Mock<IRoadmapParser>(MockBehavior.Strict);
 		roadmapParser.Setup(parser => parser.Parse(It.IsAny<string>())).Returns(roadmapItems);
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		var loadResult = InvokeLoadRoadmap(sut, "custom-roadmap.md");
 		var analysisJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -315,7 +316,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock("# Launch billing portal");
 		var roadmapParser = CreateRoadmapParserMock(roadmapItems);
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		InvokeLoadRoadmap(sut);
 		var analysisJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -343,7 +344,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock("# Improve onboarding\n# Onboarding analytics");
 		var roadmapParser = CreateRoadmapParserMock(roadmapItems);
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		InvokeLoadRoadmap(sut);
 		var analysisJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -370,7 +371,7 @@ public class ProductOwnerBrainServiceTests
 		var contextService = CreateProjectContextServiceMock();
 		var roadmapLoader = CreateRoadmapFileLoaderMock("# Improve onboarding");
 		var roadmapParser = CreateRoadmapParserMock(roadmapItems);
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		InvokeLoadRoadmap(sut);
 		var analysisJson = await InvokeEvaluateRoadmapStoryLinks(sut);
@@ -400,7 +401,7 @@ public class ProductOwnerBrainServiceTests
 		roadmapLoader.Setup(loader => loader.Load(It.IsAny<string>())).Returns("# Improve onboarding");
 		var roadmapParser = new Mock<IRoadmapParser>(MockBehavior.Strict);
 		roadmapParser.Setup(parser => parser.Parse(It.IsAny<string>())).Returns(roadmapItems);
-		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object);
+		var sut = new ProductOwnerBrainService(chatClient.Object, backlogService.Object, contextService.Object, roadmapLoader.Object, roadmapParser.Object, Mock.Of<AIAgent>(), Mock.Of<ISessionHistoryService>());
 
 		InvokeLoadRoadmap(sut);
 		var firstRunJson = await InvokeEvaluateRoadmapStoryLinks(sut);

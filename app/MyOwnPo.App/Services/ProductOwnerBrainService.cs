@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -16,6 +17,7 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 {
 	private const int MaxHistoryMessages = 20;
 	private const string DefaultRoadmapPath = "roadmap.md";
+	private const string DefaultSessionId = "default";
 
 	private static readonly string SystemPrompt = """
 		You are the Product Owner brain for this console app, an expert in agile product management, user story prioritization, and backlog grooming..
@@ -43,11 +45,16 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 	private readonly IRoadmapFileLoader _roadmapFileLoader;
 	private readonly IRoadmapParser _roadmapParser;
 	private readonly AIAgent _agent;
+	private readonly ISessionHistoryService _sessionHistoryService;
 	private readonly List<ChatMessage> _history = [];
 	private readonly ChatOptions _chatOptions;
 	private bool _hasAttemptedBacklogBootstrap;
 	private LoadedRoadmapState? _loadedRoadmap;
-	private readonly AgentSession _agentSession;
+
+	private AgentSession? _agentSession;
+	private AgentSession AgentSession => _agentSession ?? throw new InvalidOperationException("Agent session is not initialized.");
+
+	private string _sessionId = DefaultSessionId;
 
 	public ProductOwnerBrainService(
 		IChatClient chatClient,
@@ -55,7 +62,8 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 		IProjectContextService projectContextService,
 		IRoadmapFileLoader roadmapFileLoader,
 		IRoadmapParser roadmapParser,
-		[FromKeyedServices(POAgentHelper.AgentName)] AIAgent agent)
+		[FromKeyedServices(POAgentHelper.AgentName)] AIAgent agent,
+		ISessionHistoryService sessionHistoryService)
 	{
 		_chatClient = chatClient;
 		_backlogService = backlogService;
@@ -63,6 +71,7 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 		_roadmapFileLoader = roadmapFileLoader;
 		_roadmapParser = roadmapParser;
 		_agent = agent;
+		_sessionHistoryService = sessionHistoryService;
 		_history.Add(new ChatMessage(ChatRole.System, SystemPrompt));
 
 		_chatOptions = new ChatOptions
@@ -76,16 +85,27 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 				AIFunctionFactory.Create(EvaluateRoadmapStoryLinks, "EvaluateRoadmapStoryLinks", "Evaluates links between loaded roadmap items and New-state backlog stories, including rationale and confidence.")
 			]
 		};
-
-		_agentSession = _agent.CreateSessionAsync().GetAwaiter().GetResult();
 	}
 
-	public async IAsyncEnumerable<string> ChatStreaming(string userMessage)
+	public async Task InitializeSession(string sessionId, CancellationToken cancellationToken = default)
 	{
-		var agentResponse = _agent.RunStreamingAsync(userMessage, _agentSession);
+		_sessionId = sessionId;
+		_agentSession = await _sessionHistoryService.LoadSession(_sessionId, cancellationToken);
+	}
 
-		await foreach (var response in agentResponse)
+	public async IAsyncEnumerable<string> ChatStreaming(string userMessage, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	{
+		var agentResponse = _agent.RunStreamingAsync(userMessage, AgentSession, cancellationToken: cancellationToken);
+
+		await foreach (var response in agentResponse.WithCancellation(cancellationToken))
 			yield return response.Text;
+
+		await _sessionHistoryService.SaveSession(_sessionId, AgentSession, cancellationToken);
+	}
+
+	public async Task ResetSession(CancellationToken cancellationToken = default)
+	{
+		_agentSession = await _sessionHistoryService.ResetSession(_sessionId, cancellationToken);
 	}
 
 	public async Task<string> Chat(string userMessage)

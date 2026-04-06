@@ -6,6 +6,8 @@ namespace MyOwnPo;
 
 public class ConsoleHost(IBacklogService backlogService, IProductOwnerBrainService productOwnerBrainService, IProjectContextService projectContextService, TextReader input, TextWriter output)
 {
+	private const string DefaultSessionId = "default";
+
 	private readonly IBacklogService _backlogService = backlogService;
 	private readonly IProductOwnerBrainService _productOwnerBrainService = productOwnerBrainService;
 	private readonly IProjectContextService _projectContextService = projectContextService;
@@ -35,6 +37,8 @@ public class ConsoleHost(IBacklogService backlogService, IProductOwnerBrainServi
 				_output.WriteLine("Warning: Could not read project context file. Starting without context.");
 				break;
 		}
+
+		await _productOwnerBrainService.InitializeSession(DefaultSessionId, cancellationToken);
 
 		WriteHelp();
 
@@ -76,8 +80,11 @@ public class ConsoleHost(IBacklogService backlogService, IProductOwnerBrainServi
 						case "refresh":
 							await HandleRefresh();
 							break;
+						case "session new":
+							await HandleSessionNew(cancellationToken);
+							break;
 						default:
-							await HandleChat(command);
+							await HandleChat(command, cancellationToken);
 							break;
 					}
 				}
@@ -129,15 +136,21 @@ public class ConsoleHost(IBacklogService backlogService, IProductOwnerBrainServi
 		WriteMissingFieldWarnings(_backlogService.GetStories());
 	}
 
-	private async Task HandleChat(string userMessage)
+	private async Task HandleChat(string userMessage, CancellationToken cancellationToken)
 	{
 		// var response = await _productOwnerBrainService.Chat(userMessage);
 		// _output.WriteLine(response);
 
-		await foreach (var chunk in _productOwnerBrainService.ChatStreaming(userMessage))
+		await foreach (var chunk in _productOwnerBrainService.ChatStreaming(userMessage, cancellationToken))
 			_output.Write(chunk);
 
 		_output.WriteLine();
+	}
+
+	private async Task HandleSessionNew(CancellationToken cancellationToken)
+	{
+		await _productOwnerBrainService.ResetSession(cancellationToken);
+		_output.WriteLine("Started a new conversation session.");
 	}
 
 	private void HandleContext(string command)
@@ -255,6 +268,7 @@ public class ConsoleHost(IBacklogService backlogService, IProductOwnerBrainServi
 		_output.WriteLine("Commands:");
 		_output.WriteLine("- connect       : connect and ingest user stories");
 		_output.WriteLine("- refresh       : refresh backlog and show diff");
+		_output.WriteLine("- session new   : start a new conversation session");
 		_output.WriteLine("- context set   : set project context (vision, goals, etc.)");
 		_output.WriteLine("- context show  : show current project context");
 		_output.WriteLine("- context clear : remove project context");
