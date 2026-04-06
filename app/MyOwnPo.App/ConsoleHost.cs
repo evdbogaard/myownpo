@@ -131,8 +131,13 @@ public class ConsoleHost(IBacklogService backlogService, IProductOwnerBrainServi
 
 	private async Task HandleChat(string userMessage)
 	{
-		var response = await _productOwnerBrainService.Chat(userMessage);
-		_output.WriteLine(response);
+		// var response = await _productOwnerBrainService.Chat(userMessage);
+		// _output.WriteLine(response);
+
+		await foreach (var chunk in _productOwnerBrainService.ChatStreaming(userMessage))
+			_output.Write(chunk);
+
+		_output.WriteLine();
 	}
 
 	private void HandleContext(string command)

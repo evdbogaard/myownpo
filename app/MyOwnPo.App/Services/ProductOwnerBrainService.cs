@@ -47,6 +47,7 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 	private readonly ChatOptions _chatOptions;
 	private bool _hasAttemptedBacklogBootstrap;
 	private LoadedRoadmapState? _loadedRoadmap;
+	private readonly AgentSession _agentSession;
 
 	public ProductOwnerBrainService(
 		IChatClient chatClient,
@@ -75,15 +76,22 @@ public class ProductOwnerBrainService : IProductOwnerBrainService
 				AIFunctionFactory.Create(EvaluateRoadmapStoryLinks, "EvaluateRoadmapStoryLinks", "Evaluates links between loaded roadmap items and New-state backlog stories, including rationale and confidence.")
 			]
 		};
+
+		_agentSession = _agent.CreateSessionAsync().GetAwaiter().GetResult();
+	}
+
+	public async IAsyncEnumerable<string> ChatStreaming(string userMessage)
+	{
+		var agentResponse = _agent.RunStreamingAsync(userMessage, _agentSession);
+
+		await foreach (var response in agentResponse)
+			yield return response.Text;
 	}
 
 	public async Task<string> Chat(string userMessage)
 	{
 		_history.Add(new ChatMessage(ChatRole.User, userMessage));
 		TrimHistory();
-
-		var agentResponse = await _agent.RunAsync(_history);
-		var test = agentResponse.AsChatResponse();
 
 		var response = await _chatClient.GetResponseAsync(_history, _chatOptions);
 		_history.AddMessages(response);
